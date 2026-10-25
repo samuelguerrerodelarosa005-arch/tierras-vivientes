@@ -778,6 +778,24 @@ const NPC_DEFS=[
    sched:[[6,'plazaS'],[8,'sanct'],[18,'portalS']],
    lines:{greet:['La luna te ve, Viajero. Yo también.','Bienvenido. El portal duerme de día.'],work:['Un rumor corre por el pueblo. Ayúdame a ver si es cierto.'],none:['Nada que investigar. Por ahora la luna está tranquila.'],bye:['Que tu camino tenga luz.'],thanks:['La verdad pesa menos que la duda. Gracias.'],generic:['El portal abre a las siete de la tarde. En luna llena, hasta el alba.','Si mueres, renacerás en el Santuario. Tu recuerdo quedará donde caíste.','Las Ruinas Lunares guardan cristales que solo brillan de noche.']}},
 ];
+const ABOUT={
+  bruno:['Bruno. Panadero. Llevo treinta años levantándome antes que el sol para que este pueblo coma.','Soy el que hace el pan. Con las manos, no con magia de menú.'],
+  lia:['¡Soy Lía! Cuido el sembrado del oeste desde chiquita. Si algo pasa en Valdeluz, yo me entero primero.','Lía, la granjera. Mis matitas de trigo son mi orgullo.'],
+  dorran:['Dorran. Herrero. Aprendí con un maestro que ya no está.','Forjo. Eso es lo que soy.'],
+  sira:['Sira. Guardo el portal y escucho a la luna.','Soy la guardiana del portal. Vigilo lo que entra y lo que sale de Valdeluz.'],
+};
+const OPINION={
+  bruno:{lia:'Lía me trae el trigo. Habla demasiado, pero es buena gente.',dorran:'Dorran no sonríe nunca. Pero me compra pan todos los días.',sira:'Sira mira la luna como yo miro el horno.'},
+  lia:{bruno:'¡Bruno es un gruñón adorable! Me regala pan cuando llueve.',dorran:'Dorran me arregló la azada gratis. No se lo digas a nadie.',sira:'Sira sabe cosas que nadie más sabe.'},
+  dorran:{bruno:'Bruno hace buen pan. Eso es todo.',lia:'Lía habla. Mucho.',sira:'Sira guarda el portal. Y secretos.'},
+  sira:{bruno:'Bruno es más blando de lo que aparenta.',lia:'Lía es la memoria del pueblo; todo rumor pasa por ella.',dorran:'Dorran perdió a su maestro en las Ruinas. No le preguntes, déjalo hablar.'},
+};
+const SPECIAL={
+  bruno:{t:()=>`Quiero pan (${breadCost()} monedas)`,run:()=>{ const had=P.gold; buyBread(); const ok=P.gold<had; return {prompt:ok?'(El Viajero te compra un pan.)':'(El Viajero quiere pan pero no le alcanzan las monedas.)',reply:ok?pick(['Ahí tienes. Cómetelo caliente.','Crujiente, como debe ser. Llévatelo a la boca, no lo mires tanto.']):'Sin monedas no hay pan, Viajero. Vende algo en tu puesto.'}; }},
+  lia:{t:()=>'¿Cómo va el sembrado?',run:()=>({prompt:`(El Viajero pregunta por el sembrado. Quedan ${Math.round(W.wheat)} sacos de trigo y hay ${slimesNearField()} limos cerca.)`,reply:slimesNearField()>=3?`¡Fatal! Hay ${slimesNearField()} limos comiéndose el trigo. Solo quedan ${Math.round(W.wheat)} sacos.`:`¡Bien, bien! Quedan ${Math.round(W.wheat)} sacos y los limos andan lejos.`})},
+  dorran:{t:()=>'¿Algún consejo para forjar?',run:()=>({prompt:'(El Viajero pide un consejo para forjar.)',reply:'Golpea cuando la marca esté dentro de la luz, no antes. Y come bien: un herrero con hambre falla.'})},
+  sira:{t:()=>'¿Cuándo abre el portal?',run:()=>({prompt:`(El Viajero pregunta por el portal. ${portalOpenAt()} La luna está ${moonName()}.)`,reply:`${portalOpenAt()} Esta noche la luna está ${moonName()}${moonPhase()===4?'; con luna llena el portal se queda abierto hasta el alba':''}.`})},
+};
 const NPCS=[];
 function hourNow(){ return Math.floor(W.min/60)%24; }
 function schedPlace(n){ const h=hourNow(); let cur=n.sched[n.sched.length-1][1]; for(const [s,p] of n.sched) if(h>=s) cur=p; return cur; }
@@ -1011,17 +1029,17 @@ function startForge(){
   if(!(P.inv.hierro>0)){ toast('Necesitas 1 mineral de hierro. Hay rocas al este del pueblo.','bad'); return; }
   removeItem('hierro'); FORGE.active=true; FORGE.hits=[]; FORGE.x=0; FORGE.dir=1; FORGE.speed=.85; FORGE.w=forgeWidth(); FORGE.zone=rand(.25,.75);
   const d=npcById('dorran'); if(!d.hidden&&d.pos.distanceTo(P.pos)<8){ npcSay(d,pick(['Veamos esas manos.','No golpees con rabia. Golpea con oído.','El metal te dirá cuándo.']),{gest:'pensar'}); }
-  if(XR.on){ FORGE.vrPulse=0; hammerOn(true); toast('Agarra el martillo con la mano derecha y golpea el yunque cuando el anillo brille. 5 golpes.'); }
+  if(XR.on){ FORGE.vrPulse=0; FORGE.prevH=null; hammerOn(true); forgePanel.mesh.visible=true; drawForgeVR(); vrToast('Golpea el yunque con el martillo de tu mano derecha cuando la marca esté en la luz.'); }
   else { $('#forge').hidden=false; $('#forgeInfo').textContent=`Golpe 1 de 5. ${hasJob('herrero')?'Tu trabajo de Herrero ensancha la zona.':''}`; drawForge(); }
 }
 function forgeHit(acc){
   FORGE.hits.push(acc); SFX.clang(acc); burst(anvilTop,0xffc060,10+Math.round(acc*20),3,.5,.25,1);
   if(!XR.on){ $('#fHits').innerHTML=FORGE.hits.map(a=>`<span style="color:${a>.8?'#7ccf8a':a>.5?'#e9b44c':'#e0625b'}">${Math.round(a*100)}%</span>`).join(''); }
-  FORGE.zone=rand(.15,.85); FORGE.speed+=.12;
+  FORGE.zone=rand(.15,.85); FORGE.speed+=.12; if(XR.on){ buzz('right',.9,70); drawForgeVR(); }
   if(FORGE.hits.length>=5) finishForge(); else if(!XR.on) $('#forgeInfo').textContent=`Golpe ${FORGE.hits.length+1} de 5.`;
 }
 function finishForge(){
-  FORGE.active=false; $('#forge').hidden=true; hammerOn(false);
+  FORGE.active=false; $('#forge').hidden=true; hammerOn(false); forgePanel.mesh.visible=false;
   const avg=FORGE.hits.reduce((a,b)=>a+b,0)/FORGE.hits.length;
   let g=avg>.92?4:avg>.8?3:avg>.62?2:avg>.4?1:0;
   if(P.cls==='herrero'&&avg>.7) g=Math.min(4,g+1);
@@ -1035,7 +1053,8 @@ function finishForge(){
   if(!d.hidden&&d.pos.distanceTo(P.pos)<10){ d.aff=clamp(d.aff+(g>=2?5:1),-100,100); npcSay(d,g>=3?'…Esto no lo hizo la suerte. Bien.':g>=2?'Aceptable. Para ser tu primera semana.':'Metal triste. Otra vez.',{gest:g>=2?'reir':'enojado'}); }
 }
 function drawForge(){ $('#fZone').style.left=((FORGE.zone-FORGE.w)*100)+'%'; $('#fZone').style.width=(FORGE.w*200)+'%'; $('#fMark').style.left=(FORGE.x*100)+'%'; }
-function forgeDesktopHit(){ FPA.hitT=.3; const d=Math.abs(FORGE.x-FORGE.zone); forgeHit(clamp(1-d/(FORGE.w*2.2),0,1)); drawForge(); }
+function forgeAcc(){ return clamp(1-Math.abs(FORGE.x-FORGE.zone)/(FORGE.w*2.2),0,1); }
+function forgeDesktopHit(){ FPA.hitT=.3; forgeHit(forgeAcc()); drawForge(); }
 
 /* ================= EATING ================= */
 const EAT={held:null,key:null,bites:0,anim:0,cd:0};
@@ -1078,8 +1097,8 @@ function inspectStore(){ const q=activeQ('investigar'); q.progress=1; renderQues
 
 /* ================= STALL / ECONOMY ================= */
 function stallMeshes(){ STALL.forEach((s,i)=>{ if(!s.mesh){ s.mesh=itemMesh(s.key); s.mesh.scale.setScalar(2.2); scene.add(s.mesh); } s.mesh.position.set(-5.9+i*.9,1.02,10); }); }
-function placeOnStall(k,price){ if(STALL.length>=3){ toast('Tu puesto solo tiene 3 espacios.','bad'); return false; } if(!(P.inv[k]>0)) return false; removeItem(k); STALL.push({key:k,price:Math.max(1,Math.round(price))}); stallMeshes(); SFX.pick(); return true; }
-function takeFromStall(i){ const s=STALL[i]; if(!s) return; if(s.mesh) scene.remove(s.mesh); STALL.splice(i,1); addItem(s.key); stallMeshes(); }
+function placeOnStall(k,price){ setTimeout(()=>{ if(menuPanel.mesh.visible) drawMenu(); },0); if(STALL.length>=3){ toast('Tu puesto solo tiene 3 espacios.','bad'); return false; } if(!(P.inv[k]>0)) return false; removeItem(k); STALL.push({key:k,price:Math.max(1,Math.round(price))}); stallMeshes(); SFX.pick(); return true; }
+function takeFromStall(i){ setTimeout(()=>{ if(menuPanel.mesh.visible) drawMenu(); },0); const s=STALL[i]; if(!s) return; if(s.mesh) scene.remove(s.mesh); STALL.splice(i,1); addItem(s.key); stallMeshes(); }
 let shopT=0;
 function updShop(dt){
   shopT-=dt; if(shopT>0||!STALL.length) return; shopT=6;
@@ -1093,6 +1112,7 @@ function updShop(dt){
   }
 }
 function openStall(){
+  if(XR.on){ vrMenu('stall'); return; }
   const keys=Object.keys(P.inv).filter(k=>P.inv[k]>0);
   openPanel('Tu puesto',`
     <p class="hint">Los habitantes que pasen cerca compran si el precio les parece justo. Precio base entre paréntesis.${hasJob('comerciante')?' Tu trabajo de Comerciante hace que acepten precios más altos.':''}</p>
@@ -1105,7 +1125,7 @@ function openStall(){
 }
 
 /* ================= DIALOGUE ================= */
-const DLG={npc:null,offer:null,busy:false,ctl:null};
+const DLG={npc:null,offer:null,busy:false,busySince:0,ctl:null,you:'',reply:'',thinking:false};
 function affWord(a){ return a>=40?'Le caes muy bien.':a>=15?'Le caes bien.':a<=-25?'Desconfía mucho de ti.':a<=-5?'No le caes bien.':'Apenas te conoce.'; }
 function openDialog(n){
   if(DLG.npc) closeDialog();
@@ -1118,39 +1138,50 @@ function openDialog(n){
 }
 function closeDialog(){ const n=DLG.npc; if(!n) return; DLG.ctl&&DLG.ctl.abort(); n.busy=null; n.lookAt=null; n.h.talk=false; DLG.npc=null; DLG.offer=null; $('#dialog').hidden=true; hideVRDialog(); stopListen(); }
 function updAff(){ const n=DLG.npc; if(!n) return; $('#dlgAffB').style.width=((n.aff+100)/2)+'%'; $('#dlgAffT').textContent=Math.round(n.aff); }
-function dialogOptions(){ const n=DLG.npc; const o=[{t:'¿Qué se cuenta por aquí?',i:'rumor'},{t:'¿Tienes trabajo para mí?',i:'work'}];
-  deliverable(n).forEach(q=>o.push({t:'Entregar: '+QT[q.id].title,i:'deliver',q}));
+function dialogOptions(){ const n=DLG.npc; if(!n) return [];
+  const others=NPCS.filter(o=>o!==n); const other=others[(n.otherIdx||0)%others.length];
+  const o=[{t:'¿Qué se cuenta por aquí?',i:'rumor'},{t:'¿Tienes trabajo para mí?',i:'work'},{t:SPECIAL[n.id].t(),i:'special'},{t:'¿Quién eres?',i:'about'},{t:'Háblame de '+other.name,i:'other',other}];
+  deliverable(n).forEach(q=>o.unshift({t:'Entregar: '+QT[q.id].title,i:'deliver',q}));
   o.push({t:'Adiós',i:'bye'}); return o; }
 function renderOptions(){ const box=$('#dlgOptions'); box.innerHTML=''; dialogOptions().forEach(o=>{ const b=document.createElement('button'); b.className='btn small'+(o.i==='deliver'?' primary':''); b.textContent=o.t; b.onclick=()=>chooseOption(o); box.appendChild(b); }); drawVRDialog(); }
 function chooseOption(o){
-  const n=DLG.npc; if(!n||DLG.busy&&o.i!=='bye') return; SFX.ui();
+  const n=DLG.npc; if(!n) return;
+  if(DLG.busy&&o.i!=='bye'){ if(performance.now()-DLG.busySince<9000) return; DLG.busy=false; }
+  SFX.ui();
   if(o.i==='bye'){ const line=pick(n.lines.bye); npcSay(n,line,{gest:'saludar',bubble:true}); closeDialog(); return; }
   if(o.i==='deliver'){ deliverQuest(o.q,n); updAff(); talk(n,`(El Viajero te entrega lo que pediste para «${QT[o.q.id].title}». Reacciona.)`,'thanks'); return; }
+  if(o.i==='special'){ const r=SPECIAL[n.id].run(); talk(n,r.prompt,'special',r.reply,o.t); return; }
+  if(o.i==='other'){ n.otherIdx=(n.otherIdx||0)+1; talk(n,`Háblame de ${o.other.name}.`,'other',OPINION[n.id][o.other.id]); return; }
   talk(n,o.t,o.i);
 }
-function sayFree(text){ text=text.trim(); if(!text||!DLG.npc||DLG.busy) return; $('#dlgInput').value=''; const n=norm(text); const intent=/trabajo|mision|ayuda|encargo/.test(n)?'work':/rumor|cuenta|noticia|pasa|chisme/.test(n)?'rumor':/adios|chao|hasta luego|me voy/.test(n)?'bye':'generic'; if(intent==='bye'){ chooseOption({i:'bye'}); return; } talk(DLG.npc,text,intent); }
-function setDlgText(you,text){ const el=$('#dlgText'); el.innerHTML=(you?`<span class="you">Tú: ${esc(you)}</span>`:'')+esc(text); drawVRDialog(); }
-async function talk(n,playerText,intent){
-  DLG.busy=true; const you=playerText.startsWith('(')?'':playerText;
-  setDlgText(you,'…'); n.h.gest='pensar'; n.h.gestT=2;
-  const offers=offerable(n);
-  let res=null;
-  if(AI.mode!=='script'){ res=await askAI(n,playerText,intent,offers); }
-  if(!res) res=scripted(n,intent,offers);
-  if(DLG.npc!==n){ DLG.busy=false; return; }
-  n.aff=clamp(n.aff+clamp(Math.round(res.afinidad||0),-3,3),-100,100); updAff();
-  n.convo.push({p:you||playerText,n:res.decir}); if(n.convo.length>4) n.convo.shift();
-  if(intent==='greet'&&n.memory.length===0) remember(n,`Conocí a ${P.name}, ${JOBS[P.cls].name.toLowerCase()} de trabajo principal y ${JOBS[P.sub].name.toLowerCase()} de secundario`);
-  setDlgText(you,res.decir); npcSay(n,res.decir,{gest:res.emote&&res.emote!=='ninguno'?res.emote:'hablar',bubble:false});
-  const off=res.ofrecer_mision&&offers.includes(res.ofrecer_mision)?res.ofrecer_mision:(intent==='work'&&offers.length?offers[0]:null);
-  showOffer(off); renderOptions(); DLG.busy=false; checkTitles();
+function sayFree(text){ text=text.trim(); if(!text||!DLG.npc||DLG.busy) return; $('#dlgInput').value=''; const n=norm(text); const intent=/trabajo|mision|ayuda|encargo/.test(n)?'work':/rumor|cuenta|noticia|pasa|chisme/.test(n)?'rumor':/quien eres|como te llamas|presentate/.test(n)?'about':/adios|chao|hasta luego|me voy/.test(n)?'bye':'generic'; if(intent==='bye'){ chooseOption({i:'bye'}); return; } talk(DLG.npc,text,intent); }
+function setDlgText(you,text){ DLG.you=you||''; DLG.reply=text; DLG.thinking=text==='…'; const el=$('#dlgText'); el.innerHTML=(you?`<span class="you">Tú: ${esc(you)}</span>`:'')+esc(text); drawVRDialog(); }
+async function talk(n,playerText,intent,fallback,shown){
+  DLG.busy=true; DLG.busySince=performance.now(); const you=shown||(playerText.startsWith('(')?'':playerText);
+  try{
+    setDlgText(you,'…'); n.h.gest='pensar'; n.h.gestT=2;
+    const offers=offerable(n);
+    let res=null;
+    if(AI.mode!=='script'){ res=await askAI(n,playerText,intent,offers); }
+    if(!res) res=scripted(n,intent,offers,fallback);
+    if(DLG.npc!==n) return;
+    n.aff=clamp(n.aff+clamp(Math.round(res.afinidad||0),-3,3),-100,100); updAff();
+    n.convo.push({p:you||playerText,n:res.decir}); if(n.convo.length>4) n.convo.shift();
+    if(intent==='greet'&&n.memory.length===0) remember(n,`Conocí a ${P.name}, ${JOBS[P.cls].name.toLowerCase()} de trabajo principal y ${JOBS[P.sub].name.toLowerCase()} de secundario`);
+    setDlgText(you,res.decir); npcSay(n,res.decir,{gest:res.emote&&res.emote!=='ninguno'?res.emote:'hablar',bubble:false});
+    const off=res.ofrecer_mision&&offers.includes(res.ofrecer_mision)?res.ofrecer_mision:(intent==='work'&&offers.length?offers[0]:null);
+    showOffer(off); renderOptions(); checkTitles();
+  }catch(err){ if(DLG.npc===n) setDlgText(you,pick(n.lines.generic)); }
+  finally{ DLG.busy=false; DLG.thinking=false; drawVRDialog(); }
 }
 function showOffer(id){ DLG.offer=id; const box=$('#dlgOffer'); if(!id){ box.hidden=true; drawVRDialog(); return; } const d=QT[id];
   box.hidden=false; box.innerHTML=`<span class="eyebrow">${d.hidden?'Misión oculta':'Misión'} · la decide el juego</span><h3>${esc(d.title)}</h3><p>${esc(d.desc)}</p><p class="mono" style="font-size:13px;color:var(--muted)">Recompensa: ${d.reward.gold} monedas · ${d.reward.xp} XP · +${d.reward.aff} afinidad${d.reward.title?' · título «'+esc(d.reward.title)+'»':''}</p><div class="cta"><button class="btn primary small" id="offYes">Aceptar</button><button class="btn small" id="offNo">Ahora no</button></div>`;
   $('#offYes').onclick=()=>{ acceptQuest(id); showOffer(null); }; $('#offNo').onclick=()=>showOffer(null); drawVRDialog(); }
-function scripted(n,intent,offers){
+function scripted(n,intent,offers,fallback){
   const L=n.lines; let t;
-  if(intent==='greet') t=pick(L.greet)+(n.aff>=20?' Me alegra verte.':'');
+  if(fallback) t=fallback;
+  else if(intent==='about') t=pick(ABOUT[n.id]);
+  else if(intent==='greet') t=pick(L.greet)+(n.aff>=20?' Me alegra verte.':'');
   else if(intent==='work') t=offers.length?(QT[offers[0]].hidden?'…Has demostrado buen oído. Mi maestro forjaba con cristales lunares. Tráeme uno de las Ruinas.':pick(L.work)):pick(L.none);
   else if(intent==='rumor') t=n.rumors.length?'Dicen por ahí: '+n.rumors[n.rumors.length-1]:pick(L.generic);
   else if(intent==='thanks') t=pick(L.thanks);
@@ -1217,6 +1248,7 @@ function openPanel(title,html,mount){ $('#panelTitle').textContent=title; const 
 function closePanel(){ $('#panel').hidden=true; }
 $('#panelClose').onclick=closePanel;
 function openInventory(){
+  if(XR.on){ vrMenu('menu','inv'); return; }
   const keys=Object.keys(P.inv).filter(k=>P.inv[k]>0);
   openPanel('Inventario',`
     <ul class="list">${keys.length?keys.map(k=>`<li><div class="grow">${esc(itemName(k))} <span class="mono">×${P.inv[k]}</span><small>Valor base ${itemBase(k)}</small></div><div class="acts">${ITEMS[k]?.food?`<button class="btn small" data-eat="${k}">Comer</button>`:''}</div></li>`).join(''):'<li><small>Vacío.</small></li>'}</ul>
@@ -1225,7 +1257,7 @@ function openInventory(){
   b=>{ b.querySelectorAll('[data-eat]').forEach(x=>x.onclick=()=>{ closePanel(); startHold(x.dataset.eat); EAT.anim=1; });
        b.querySelectorAll('[data-title]').forEach(x=>x.onclick=()=>{ P.title=x.dataset.title; openInventory(); }); });
 }
-function openRumors(){ openPanel('Rumores del pueblo',`<p class="hint">Lo que los habitantes se dicen entre ellos. Los rumores abren misiones y cambian lo que piensan de ti.</p><ul class="list">${W.rumorLog.length?W.rumorLog.map(r=>`<li><div class="grow">${esc(r.text)}<small>Día ${r.day} · ${r.t}</small></div></li>`).join(''):'<li><small>Aún no oyes nada. Los habitantes se visitan y conversan solos; acércate cuando lo hagan.</small></li>'}</ul>`); }
+function openRumors(){ if(XR.on){ vrMenu('menu','rumors'); return; } openPanel('Rumores del pueblo',`<p class="hint">Lo que los habitantes se dicen entre ellos. Los rumores abren misiones y cambian lo que piensan de ti.</p><ul class="list">${W.rumorLog.length?W.rumorLog.map(r=>`<li><div class="grow">${esc(r.text)}<small>Día ${r.day} · ${r.t}</small></div></li>`).join(''):'<li><small>Aún no oyes nada. Los habitantes se visitan y conversan solos; acércate cuando lo hagan.</small></li>'}</ul>`); }
 function openSettings(){
   openPanel('Ajustes',`
     <div class="setting"><span>Voces de los habitantes</span><button class="btn small" id="sTTS" aria-pressed="${TTS.on}">${TTS.on?'Activadas':'Desactivadas'}</button></div>
@@ -1255,7 +1287,7 @@ function openHelp(){ openPanel('Controles',`
   <div class="sect">Teclado y ratón</div>
   <div class="keys"><kbd>W A S D</kbd><span>Moverte (Mayús para correr)</span><kbd>Clic</kbd><span>Fijar la vista; luego lanzar el hechizo elegido</span><kbd>1 · 2 · 3</kbd><span>Lanzar fuego, escudo o curar</span><kbd>Q (mantener)</kbd><span>Canalizar por voz: di «bola de fuego», «escudo» o «curar»</span><kbd>E</kbd><span>Hablar, recoger, forjar, comprar</span><kbd>F</kbd><span>Llevarte la comida a la boca (3 mordidas)</span><kbd>Espacio</kbd><span>Saltar</span><kbd>I · R</kbd><span>Inventario · Rumores</span><kbd>Esc</kbd><span>Cerrar ventana o liberar el ratón</span></div>
   <div class="sect">Quest 3 / 3S (versión alojada, botón «Entrar en VR»)</div>
-  <div class="keys"><kbd>Stick izq.</kbd><span>Moverte</span><kbd>Stick der.</kbd><span>Girar por pasos</span><kbd>Gatillo der.</kbd><span>Apuntar y usar (hablar, recoger, botones de los paneles)</span><kbd>Gatillo izq.</kbd><span>Canalizar hechizo; suelta lanzando la mano. Di el nombre mientras canalizas</span><kbd>X</kbd><span>Cambiar de hechizo</span><kbd>A</kbd><span>Saltar (en modo de pie también puedes saltar de verdad)</span><kbd>Muñeca izq.</kbd><span>Panel: comer, descansar, modo sentado</span><kbd>Comer</kbd><span>Lleva la comida de la mano derecha a la boca</span><kbd>Forjar</kbd><span>Golpea el yunque con la mano derecha cuando brille el anillo</span></div>
+  <div class="keys"><kbd>Stick izq.</kbd><span>Moverte</span><kbd>Stick der.</kbd><span>Girar por pasos</span><kbd>Gatillo der.</kbd><span>Apuntar y usar (hablar, recoger, botones de los paneles)</span><kbd>Gatillo izq.</kbd><span>Canalizar hechizo; suelta lanzando la mano. Di el nombre mientras canalizas</span><kbd>X</kbd><span>Cambiar de hechizo</span><kbd>A</kbd><span>Saltar (en modo de pie también puedes saltar de verdad)</span><kbd>Muñeca izq.</kbd><span>Panel: comer, girar, saltar, descansar, modo sentado y Menú (inventario, misiones, rumores, títulos)</span><kbd>Comer</kbd><span>Lleva la comida de la mano derecha a la boca</span><kbd>Forjar</kbd><span>Sobre el yunque aparece la barra de tiempo: golpea con el martillo o pulsa el gatillo cuando la marca esté en la luz</span></div>
   <div class="sect">Hand tracking (sin mandos)</div>
   <div class="keys"><kbd>Pellizco der.</kbd><span>Apunta con la mano y pellizca para usar: hablar, recoger, botones</span><kbd>Pellizco der. al suelo</kbd><span>Mantén y suelta para moverte allí</span><kbd>Pellizco izq.</kbd><span>Canaliza el hechizo; suelta mientras lanzas la mano</span><kbd>Mano izq. abajo</kbd><span>Aparece tu panel: girar, saltar, comer, hechizo, descansar</span><kbd>Comer / forjar</kbd><span>Igual que con mandos: la comida o el martillo van en tu mano derecha</span></div>
   <p class="hint">Dentro de Claude no hay acceso al micrófono ni a WebXR; esas dos funciones se activan al abrir este mismo archivo alojado en una dirección https desde el navegador del visor.</p>`); }
@@ -1382,22 +1414,77 @@ function makePanel(wPx,hPx,wM){ const c=document.createElement('canvas'); c.widt
   const m=new T.Mesh(new T.PlaneGeometry(wM,wM*hPx/wPx),new T.MeshBasicMaterial({map:tex,transparent:true,fog:false,side:T.DoubleSide,depthTest:false})); m.renderOrder=40; m.visible=false;
   const p={c,ctx,tex,mesh:m,buttons:[],hover:-1}; m.userData.panel=p; PANELS.push(p); return p; }
 function panelBg(p){ const {ctx,c}=p; ctx.clearRect(0,0,c.width,c.height); ctx.fillStyle='rgba(10,22,32,.92)'; rrect(ctx,4,4,c.width-8,c.height-8,18); ctx.fill(); ctx.strokeStyle='rgba(120,196,226,.6)'; ctx.lineWidth=3; ctx.stroke(); }
-function panelBtn(p,b,i){ const {ctx}=p; ctx.fillStyle=i===p.hover?'rgba(233,180,76,.35)':b.primary?'rgba(233,180,76,.85)':'rgba(108,201,230,.14)'; rrect(ctx,b.x,b.y,b.w,b.h,10); ctx.fill(); ctx.strokeStyle='rgba(120,196,226,.6)'; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle=b.primary&&i!==p.hover?'#1b1305':'#e4eff3'; ctx.font='600 26px Barlow, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; const t=wrapText(ctx,b.t,b.w-16)[0]; ctx.fillText(t,b.x+b.w/2,b.y+b.h/2); }
-const dlgPanel=makePanel(1024,640,1.1); scene.add(dlgPanel.mesh);
+function panelBtn(p,b,i){ const {ctx}=p; ctx.fillStyle=i===p.flash?'rgba(124,207,138,.85)':i===p.hover?'rgba(233,180,76,.35)':b.primary?'rgba(233,180,76,.85)':'rgba(108,201,230,.14)'; rrect(ctx,b.x,b.y,b.w,b.h,10); ctx.fill(); ctx.strokeStyle='rgba(120,196,226,.6)'; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle=b.primary&&i!==p.hover?'#1b1305':'#e4eff3'; ctx.font='600 26px Barlow, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; const t=wrapText(ctx,b.t,b.w-16)[0]; ctx.fillText(t,b.x+b.w/2,b.y+b.h/2); }
+const dlgPanel=makePanel(1024,760,1.1); scene.add(dlgPanel.mesh);
 const wristPanel=makePanel(512,600,.26); scene.add(wristPanel.mesh);
 const toastPanel=makePanel(1024,140,.9); camera.add(toastPanel.mesh); toastPanel.mesh.position.set(0,.32,-1.2); let vrToastT=0;
 function vrToast(msg){ const p=toastPanel; panelBg(p); p.ctx.fillStyle='#e4eff3'; p.ctx.font='500 32px Barlow, sans-serif'; p.ctx.textAlign='center'; p.ctx.textBaseline='middle'; wrapText(p.ctx,msg,960).slice(0,2).forEach((l,i,a)=>p.ctx.fillText(l,512,70+(i-(a.length-1)/2)*40)); p.tex.needsUpdate=true; p.mesh.visible=true; vrToastT=4.5; }
 function showVRDialog(){ camera.getWorldDirection(tmpA); tmpA.y=0; tmpA.normalize(); camera.getWorldPosition(tmpB); dlgPanel.mesh.position.copy(tmpB).addScaledVector(tmpA,1.15); dlgPanel.mesh.position.y=tmpB.y-.15; dlgPanel.mesh.lookAt(tmpB.x,dlgPanel.mesh.position.y,tmpB.z); dlgPanel.mesh.visible=true; drawVRDialog(); }
 function hideVRDialog(){ dlgPanel.mesh.visible=false; }
 function drawVRDialog(){ if(!XR.on||!DLG.npc) return; const p=dlgPanel,{ctx}=p,n=DLG.npc; panelBg(p);
-  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#e9b44c'; ctx.font='40px "Marcellus SC", serif'; ctx.fillText(n.name,36,64); ctx.fillStyle='#93aeba'; ctx.font='500 24px Barlow, sans-serif'; ctx.fillText(`${n.role} · afinidad ${Math.round(n.aff)}`,36,96);
-  ctx.fillStyle='#e4eff3'; ctx.font='500 30px Barlow, sans-serif'; const txt=$('#dlgText').textContent; wrapText(ctx,txt,950).slice(0,6).forEach((l,i)=>ctx.fillText(l,36,150+i*38));
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#e9b44c'; ctx.font='40px "Marcellus SC", serif'; ctx.fillText(n.name,36,62); ctx.fillStyle='#93aeba'; ctx.font='500 24px Barlow, sans-serif'; ctx.fillText(`${n.role} · afinidad ${Math.round(n.aff)}`,36,94);
+  let y=146;
+  if(DLG.you){ ctx.fillStyle='#6cc9e6'; ctx.font='500 26px Barlow, sans-serif'; wrapText(ctx,'Tú: '+DLG.you,950).slice(0,2).forEach(l=>{ ctx.fillText(l,36,y); y+=32; }); y+=8; }
+  ctx.fillStyle='#e4eff3'; ctx.font='500 30px Barlow, sans-serif';
+  const body=DLG.thinking?`${n.name} está pensando…`:DLG.reply; wrapText(ctx,body,950).slice(0,5).forEach(l=>{ ctx.fillText(l,36,y); y+=38; });
   p.buttons=[]; let opts;
-  if(DLG.offer){ const d=QT[DLG.offer]; ctx.fillStyle='#e9b44c'; ctx.font='600 28px Barlow, sans-serif'; ctx.fillText('Misión: '+d.title+`  (${d.reward.gold} monedas · ${d.reward.xp} XP)`,36,400); opts=[{t:'Aceptar misión',f:()=>{acceptQuest(DLG.offer);showOffer(null);},primary:true},{t:'Ahora no',f:()=>showOffer(null)}]; }
+  if(DLG.offer){ const d=QT[DLG.offer]; ctx.fillStyle='#e9b44c'; ctx.font='600 28px Barlow, sans-serif'; wrapText(ctx,'Misión: '+d.title+`  (${d.reward.gold} monedas · ${d.reward.xp} XP)`,950).slice(0,2).forEach((l,i)=>ctx.fillText(l,36,404+i*32)); opts=[{t:'Aceptar misión',f:()=>{acceptQuest(DLG.offer);showOffer(null);},primary:true},{t:'Ahora no',f:()=>showOffer(null)}]; }
   else opts=dialogOptions().map(o=>({t:o.t,f:()=>chooseOption(o),primary:o.i==='deliver'}));
-  if(MIC.ok&&!DLG.offer) opts.splice(opts.length-1,0,{t:'Hablar con mi voz',f:()=>{ listen((t,fin)=>{ if(fin) sayFree(t); }); vrToast('Escuchando… habla ahora.'); }});
-  opts.forEach((o,i)=>{ const col=i%2,row=Math.floor(i/2); const b={x:36+col*486,y:430+row*64,w:466,h:54,t:o.t,f:o.f,primary:o.primary}; p.buttons.push(b); panelBtn(p,b,i); });
+  if(MIC.ok&&!DLG.offer) opts.splice(opts.length-1,0,{t:'Hablar con mi voz',f:()=>{ vrToast('Escuchando… habla ahora.'); listen((t,fin)=>{ if(fin) sayFree(t); }); }});
+  opts=opts.slice(0,8);
+  opts.forEach((o,i)=>{ const col=i%2,row=Math.floor(i/2); const b={x:36+col*486,y:470+row*68,w:466,h:58,t:o.t,f:o.f,primary:o.primary}; p.buttons.push(b); panelBtn(p,b,i); });
+  if(DLG.busy){ ctx.fillStyle='rgba(10,22,32,.55)'; ctx.fillRect(30,464,964,280); }
   p.tex.needsUpdate=true; }
+function redrawPanel(p){ if(p===dlgPanel) drawVRDialog(); else if(p===wristPanel) drawWrist(); else if(p===menuPanel) drawMenu(); else if(p===forgePanel) drawForgeVR(); }
+function buzz(h,v=.5,ms=40){ try{ const a=HANDS[h].src&&HANDS[h].src.gamepad&&HANDS[h].src.gamepad.hapticActuators&&HANDS[h].src.gamepad.hapticActuators[0]; if(a&&a.pulse) a.pulse(v,ms); }catch(e){} }
+function pressPanel(p,idx){ const b=p.buttons[idx]; if(!b) return; SFX.ui(); buzz('right',.6,35); p.flash=idx; panelBtn(p,b,idx); p.tex.needsUpdate=true; try{ b.f(); }catch(e){ console.error(e); } setTimeout(()=>{ p.flash=-1; if(p.mesh.visible) redrawPanel(p); },160); if(p.mesh.visible) redrawPanel(p); }
+function placeInFront(mesh,dist=1.05,drop=.12){ camera.getWorldDirection(tmpA); tmpA.y=0; tmpA.normalize(); camera.getWorldPosition(tmpB); mesh.position.copy(tmpB).addScaledVector(tmpA,dist); mesh.position.y=tmpB.y-drop; mesh.lookAt(tmpB.x,mesh.position.y,tmpB.z); }
+// VR menu: inventory, missions, rumors, titles and the player's stall
+const menuPanel=makePanel(1024,800,1.05); scene.add(menuPanel.mesh);
+const MENU={tab:'inv',mode:'menu'};
+function vrMenu(mode,tab){ MENU.mode=mode||'menu'; if(tab) MENU.tab=tab; placeInFront(menuPanel.mesh,1.0,.1); menuPanel.mesh.visible=true; drawMenu(); }
+function closeVRMenu(){ menuPanel.mesh.visible=false; }
+function drawMenu(){ const p=menuPanel,{ctx}=p; panelBg(p); p.buttons=[]; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  const btn=(t,x,y,w,h,f,primary)=>{ const b={t,x,y,w,h,f,primary}; p.buttons.push(b); panelBtn(p,b,p.buttons.length-1); };
+  const line=(t,y,col='#e4eff3',font='500 26px Barlow, sans-serif')=>{ ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle=col; ctx.font=font; ctx.fillText(wrapText(ctx,t,700)[0]||'',40,y); };
+  ctx.fillStyle='#e9b44c'; ctx.font='40px "Marcellus SC", serif'; ctx.fillText(MENU.mode==='stall'?'Tu puesto':'Menú',40,62);
+  btn('Cerrar',820,24,170,52,closeVRMenu);
+  if(MENU.mode==='stall'){
+    line(`${P.gold} monedas · los habitantes compran si el precio les parece justo`,104,'#93aeba','500 22px Barlow, sans-serif');
+    line(`En venta (${STALL.length}/3)`,150,'#6cc9e6','600 24px Barlow, sans-serif'); let y=164;
+    if(!STALL.length){ line('Vacío.',y+30,'#93aeba'); y+=50; }
+    STALL.forEach((s,i)=>{ line(`${itemName(s.key)} · ${s.price} monedas`,y+36); btn('Retirar',800,y+2,190,52,()=>takeFromStall(i)); y+=60; });
+    y+=16; line('Tu inventario',y+20,'#6cc9e6','600 24px Barlow, sans-serif'); y+=34;
+    Object.keys(P.inv).filter(k=>P.inv[k]>0).slice(0,7).forEach(k=>{ const base=itemBase(k), hi=Math.max(base+1,Math.round(base*1.3));
+      line(`${itemName(k)} ×${P.inv[k]}`,y+36); btn(`Vender ${base}`,600,y+2,190,52,()=>placeOnStall(k,base)); btn(`Vender ${hi}`,800,y+2,190,52,()=>placeOnStall(k,hi)); y+=60; });
+  } else {
+    const tabs=[['inv','Inventario'],['quests','Misiones'],['rumors','Rumores'],['titles','Títulos']];
+    tabs.forEach(([k,t],i)=>btn(t,40+i*240,96,228,54,()=>{ MENU.tab=k; },MENU.tab===k));
+    let y=176;
+    if(MENU.tab==='inv'){ const keys=Object.keys(P.inv).filter(k=>P.inv[k]>0);
+      line(`${P.gold} monedas · Nivel ${P.lvl}`,y+10,'#93aeba','500 22px Barlow, sans-serif'); y+=26;
+      if(!keys.length) line('Vacío.',y+36,'#93aeba');
+      keys.slice(0,9).forEach(k=>{ line(`${itemName(k)} ×${P.inv[k]}`,y+36); if(ITEMS[k]&&ITEMS[k].food) btn('Comer',800,y+2,190,52,()=>{ startHold(k); closeVRMenu(); vrToast('Lleva la comida de tu mano derecha a la boca.'); }); y+=60; }); }
+    else if(MENU.tab==='quests'){ if(!QUESTS.length) line('Sin misiones. Pregunta a los habitantes si tienen trabajo.',y+36,'#93aeba');
+      QUESTS.forEach(q=>{ const d=QT[q.id]; line(`${d.title}  ${qProgress(q)}/${d.need}`,y+36,qDone(q)?'#7ccf8a':'#e4eff3','600 26px Barlow, sans-serif'); ctx.textAlign='left'; ctx.fillStyle='#93aeba'; ctx.font='500 22px Barlow, sans-serif'; wrapText(ctx,qDone(q)?'Vuelve con '+npcById(d.giver).name+' para entregarla.':d.desc,940).slice(0,2).forEach((l,i)=>ctx.fillText(l,40,y+66+i*26)); y+=124; }); }
+    else if(MENU.tab==='rumors'){ if(!W.rumorLog.length) line('Aún no oyes rumores. Los habitantes conversan solos.',y+36,'#93aeba');
+      W.rumorLog.slice(0,6).forEach(r=>{ ctx.textAlign='left'; ctx.fillStyle='#e4eff3'; ctx.font='500 23px Barlow, sans-serif'; wrapText(ctx,r.text,940).slice(0,2).forEach((l,i)=>ctx.fillText(l,40,y+30+i*27)); ctx.fillStyle='#93aeba'; ctx.font='500 18px Barlow, sans-serif'; ctx.fillText(`Día ${r.day} · ${r.t}`,40,y+86); y+=96; }); }
+    else { if(!P.titles.length) line('Gana títulos con tus hazañas.',y+36,'#93aeba');
+      P.titles.forEach(t=>{ line(`${t}${P.title===t?' (activo)':''}`,y+36,P.title===t?'#e9b44c':'#e4eff3'); btn(P.title===t?'Activo':'Activar',800,y+2,190,52,()=>{ P.title=t; },P.title===t); y+=60; }); }
+  }
+  p.tex.needsUpdate=true; }
+// VR forge: a panel above the anvil with the same timing bar as on PC
+const forgePanel=makePanel(900,330,.8); scene.add(forgePanel.mesh);
+function drawForgeVR(){ const p=forgePanel,{ctx}=p; panelBg(p); p.buttons=[]; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#e9b44c'; ctx.font='36px "Marcellus SC", serif'; ctx.fillText(`Forja · golpe ${Math.min(5,FORGE.hits.length+1)} de 5`,32,56);
+  ctx.fillStyle='#93aeba'; ctx.font='500 22px Barlow, sans-serif'; ctx.fillText('Golpea el yunque o pulsa el gatillo cuando la marca esté en la luz.',32,92);
+  const bx=32,by=116,bw=836,bh=56; ctx.fillStyle='#3a1608'; rrect(ctx,bx,by,bw,bh,10); ctx.fill();
+  ctx.fillStyle='rgba(255,214,120,.75)'; ctx.fillRect(bx+(FORGE.zone-FORGE.w)*bw,by,FORGE.w*2*bw,bh);
+  ctx.fillStyle='#fff'; ctx.fillRect(bx+FORGE.x*bw-4,by-6,8,bh+12);
+  FORGE.hits.forEach((a,i)=>{ ctx.fillStyle=a>.8?'#7ccf8a':a>.5?'#e9b44c':'#e0625b'; ctx.font='600 26px "JetBrains Mono", monospace'; ctx.fillText(Math.round(a*100)+'%',32+i*120,220); });
+  const b={t:'Salir de la forja',x:600,y:250,w:268,h:58,f:cancelForge}; p.buttons.push(b); panelBtn(p,b,0);
+  p.tex.needsUpdate=true; }
+function cancelForge(){ if(!FORGE.active) return; FORGE.active=false; $('#forge').hidden=true; hammerOn(false); forgePanel.mesh.visible=false; addItem('hierro'); toast('Dejaste la forja. Recuperaste el mineral.'); }
 let wristT=0;
 function drawWrist(){ const p=wristPanel,{ctx}=p; panelBg(p); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.fillStyle='#e4eff3'; ctx.font='600 28px Barlow, sans-serif'; ctx.fillText(`${timeStr()} · Día ${W.day}`,24,44); ctx.fillStyle=portalOpen()?'#6cc9e6':'#93aeba'; ctx.font='500 20px Barlow, sans-serif'; ctx.fillText(`Luna ${moonName()} · portal ${portalOpen()?'abierto':'cerrado'}`,24,72);
@@ -1408,7 +1495,7 @@ function drawWrist(){ const p=wristPanel,{ctx}=p; panelBg(p); ctx.textAlign='lef
     {t:'Comer',f:()=>{ const k=foodKey(); if(k){startHold(k); vrToast('Lleva la comida a tu boca.');} else vrToast('No tienes comida.'); }},
     {t:'◀ Girar',f:()=>snapTurn(1)},{t:'Girar ▶',f:()=>snapTurn(-1)},
     {t:'Saltar',f:()=>jump()},{t:'Descansar 1 h',f:()=>{ advance(60); vrToast('Descansaste. Son las '+timeStr()+'.'); }},
-    {t:P.seated?'Sentado: sí':'Sentado: no',f:toggleSeated},{t:DLG.npc?'Cerrar diálogo':'Rumores: '+W.rumorLog.length,f:()=>{ if(DLG.npc) closeDialog(); else vrToast(W.rumorLog[0]?W.rumorLog[0].text:'Aún no oyes rumores.'); }}];
+    {t:P.seated?'Sentado: sí':'Sentado: no',f:toggleSeated},{t:DLG.npc?'Cerrar diálogo':'Menú',f:()=>{ if(DLG.npc) closeDialog(); else vrMenu('menu'); }}];
   p.buttons.forEach((b,i)=>{ Object.assign(b,{x:24+(i%2)*236,y:204+Math.floor(i/2)*96,w:226,h:84}); panelBtn(p,b,i); }); p.tex.needsUpdate=true; }
 function toggleSeated(){ P.seated=!P.seated; if(P.seated&&XR.on) P.seatOffset=clamp(1.62-camera.position.y,0,.95); toast(P.seated?'Modo sentado: la altura se compensa. Salta con A o desde la muñeca.':'Modo de pie: puedes saltar de verdad.'); }
 function snapTurn(sign){ const ang=sign*XR.snap*Math.PI/180; camera.getWorldPosition(tmpA); rig.rotation.y+=ang; rig.updateMatrixWorld(true); camera.getWorldPosition(tmpC); rig.position.x+=tmpA.x-tmpC.x; rig.position.z+=tmpA.z-tmpC.z; XR.turnFlash=.6; }
@@ -1420,7 +1507,7 @@ async function enterVR(){
     XR.on=true; sun.castShadow=false; renderer.shadowMap.enabled=false; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; });
     $('#hud').hidden=true; $('#dialog').hidden=true; closePanel(); avatar.head.visible=false; avatar.armL.visible=avatar.armR.visible=false;
     rig.rotation.y=P.yaw; P.pitch=0; camera.position.set(0,0,0); camera.rotation.set(0,0,0);
-    s.addEventListener('end',()=>{ XR.on=false; renderer.shadowMap.enabled=true; sun.castShadow=true; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; }); $('#hud').hidden=false; avatar.head.visible=true; avatar.armL.visible=avatar.armR.visible=true; wristPanel.mesh.visible=false; vignette.visible=false; tpRing.visible=false; hideVRDialog(); rig.rotation.set(0,0,0); });
+    s.addEventListener('end',()=>{ XR.on=false; renderer.shadowMap.enabled=true; sun.castShadow=true; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; }); $('#hud').hidden=false; avatar.head.visible=true; avatar.armL.visible=avatar.armR.visible=true; wristPanel.mesh.visible=false; menuPanel.mesh.visible=false; forgePanel.mesh.visible=false; vignette.visible=false; tpRing.visible=false; hideVRDialog(); rig.rotation.set(0,0,0); });
     vrToast('Bienvenido a Valdeluz. Baja la mano izquierda para ver tu panel.');
   }catch(e){ toast('No se pudo entrar en VR aquí. Abre la versión alojada en el navegador del Quest.','bad'); }
 }
@@ -1476,10 +1563,12 @@ function vrFrame(dt){
       for(const it of INTER){ if(!it.ok()) continue; const p=it.pos(); tmpC.subVectors(p,o); const along=tmpC.dot(d); if(along<.2||along>9) continue; const perp=tmpC.addScaledVector(d,-along).length(); if(perp<.35+it.r*.15&&along<bd){ bd=along; best=it; } }
       target=best; }
     PANELS.forEach((p,i)=>{ if(p.hover!==oldHover[i]) p.dirty=true; });
-    PANELS.forEach(p=>{ if(p.dirty){ p.dirty=false; if(p===dlgPanel) drawVRDialog(); else if(p===wristPanel) drawWrist(); } });
+    PANELS.forEach(p=>{ if(p.dirty){ p.dirty=false; redrawPanel(p); } });
     if(target&&!tp){ const p=target.pos(); vrLabel.visible=true; vrLabel.userData.set(target.label()); vrLabel.position.copy(p).y+=.55; } else vrLabel.visible=false;
     if(R.trigDown){ initAudio();
-      if(hitPanel&&hitBtn>=0){ SFX.ui(); hitPanel.buttons[hitBtn].f(); if(hitPanel===wristPanel) drawWrist(); }
+      if(hitPanel&&hitBtn>=0){ pressPanel(hitPanel,hitBtn); }
+      else if(hitPanel){ /* pointing at a panel's background: ignore */ }
+      else if(FORGE.active){ /* handled by the forge */ }
       else if(target&&!DLG.npc){ target.act(); }
       else if(R.isHand&&!hitPanel&&!DLG.npc&&!EAT.held&&!FORGE.active) tp={ok:false,pt:V3()}; }
     if(tp){ if(d.y<-.05){ const k=(P.pos.y-o.y)/d.y; const pt=tp.pt.copy(o).addScaledVector(d,k); const dist=Math.hypot(pt.x-P.pos.x,pt.z-P.pos.z);
@@ -1490,9 +1579,11 @@ function vrFrame(dt){
   // eating: bring the food in your right hand to your mouth
   if(EAT.held&&holder('right')){ EAT.held.getWorldPosition(tmpC); camera.getWorldPosition(tmpA); camera.getWorldDirection(tmpB); tmpA.addScaledVector(tmpB,.05); tmpA.y-=.07; if(tmpC.distanceTo(tmpA)<.16) bite(); }
   // forging: swing the hammer in your right hand onto the anvil
-  if(FORGE.active){ FORGE.vrPulse+=dt; const ph=(Math.sin(FORGE.vrPulse*TAU/1.3)+1)/2; anvilRing.material.opacity=.25+ph*.75; anvilRing.scale.setScalar(1+ph*.6);
+  if(FORGE.active){ const inZone=Math.abs(FORGE.x-FORGE.zone)<FORGE.w; anvilRing.material.opacity=inZone?1:.3; anvilRing.scale.setScalar(inZone?1.5:1);
+    camera.getWorldPosition(tmpB); forgePanel.mesh.position.set(anvilTop.x,anvilTop.y+.85,anvilTop.z); forgePanel.mesh.lookAt(tmpB.x,forgePanel.mesh.position.y,tmpB.z);
+    if(R.trigDown&&!hitPanel){ forgeHit(clamp(forgeAcc()+(tAct('Martillo Firme')?.05:0),0,1)); }
     if(holder('right')){ hammerHead.getWorldPosition(tmpC); if(!FORGE.prevH) FORGE.prevH=tmpC.clone(); const vy=(tmpC.y-FORGE.prevH.y)/Math.max(dt,1e-3); const dxz=Math.hypot(tmpC.x-anvilTop.x,tmpC.z-anvilTop.z);
-      if(vy<-1&&tmpC.y<anvilTop.y+.06&&FORGE.prevH.y>=anvilTop.y+.06&&dxz<.35){ forgeHit(clamp(ph*(1+.15*jw('herrero'))+(tAct('Martillo Firme')?.05:0),0,1)); } FORGE.prevH.copy(tmpC); } }
+      if(vy<-.8&&tmpC.y<anvilTop.y+.08&&FORGE.prevH.y>=anvilTop.y+.08&&dxz<.45){ forgeHit(clamp(forgeAcc()*(1+.1*jw('herrero'))+(tAct('Martillo Firme')?.05:0),0,1)); } FORGE.prevH.copy(tmpC); } }
   wristT-=dt; if(wristT<=0&&wristPanel.mesh.visible){ wristT=.5; drawWrist(); }
   if(vrToastT>0){ vrToastT-=dt; if(vrToastT<=0) toastPanel.mesh.visible=false; }
 }
@@ -1535,7 +1626,7 @@ function loop(){
     if(EAT.cd>0) EAT.cd-=dt;
     if(!XR.on&&EAT.held&&EAT.anim>0){ const prevA=EAT.anim; EAT.anim=Math.min(2,EAT.anim+dt*2.4); const k=Math.sin((EAT.anim-1)*Math.PI); if(EAT.held) EAT.held.position.set(lerp(.25,0,k),lerp(-.27,-.08,k),lerp(-.5,-.2,k)); if(EAT.anim>=1.45&&prevA<1.45) bite(); if(EAT.anim>=2) EAT.anim=0; }
     // forge desktop marker
-    if(FORGE.active&&!XR.on){ FORGE.x+=FORGE.dir*FORGE.speed*dt; if(FORGE.x>1){FORGE.x=1;FORGE.dir=-1;} if(FORGE.x<0){FORGE.x=0;FORGE.dir=1;} drawForge(); }
+    if(FORGE.active){ FORGE.x+=FORGE.dir*FORGE.speed*dt; if(FORGE.x>1){FORGE.x=1;FORGE.dir=-1;} if(FORGE.x<0){FORGE.x=0;FORGE.dir=1;} if(XR.on){ FORGE.drawT=(FORGE.drawT||0)-dt; if(FORGE.drawT<=0){ FORGE.drawT=1/30; drawForgeVR(); } } else drawForge(); }
     // NPCs + chats
     NPCS.forEach(n=>updNPC(n,dt,t));
     for(let i=0;i<NPCS.length;i++) for(let j=i+1;j<NPCS.length;j++){ const a=NPCS[i],b=NPCS[j]; if(a.hidden||b.hidden||a.busy||b.busy) continue; if(a.pos.distanceTo(b.pos)<2.4&&(a.visiting===b||b.visiting===a||Math.random()<.004)) npcChat(a,b,t); }
@@ -1653,7 +1744,7 @@ function boot(data){
   buildAvatar(); initCreator(); updHUD(); renderer.setAnimationLoop(loop);
   if(data&&data.save&&restore(data.save)) beginGame(true);
 }
-window.__tv={EAT,eatDesktop,bite,P,W,NPCS,QUESTS:()=>QUESTS,SLIMES,openDialog,castSpell,startForge,forgeDesktopHit,advance,INTER,npcChat,acceptQuest};
+window.__tv={menuPanel,forgePanel,vrMenu,drawMenu,pressPanel,XR,DLG,dlgPanel,wristPanel,drawVRDialog,chooseOption,dialogOptions,EAT,eatDesktop,bite,P,W,NPCS,QUESTS:()=>QUESTS,SLIMES,openDialog,castSpell,startForge,forgeDesktopHit,advance,INTER,npcChat,acceptQuest};
 if(window.claude&&window.claude.hot&&window.claude.hot.ready) window.claude.hot.ready(boot); else boot((window.claude&&window.claude.hot&&window.claude.hot.data)||{});
 })();
 </script>
