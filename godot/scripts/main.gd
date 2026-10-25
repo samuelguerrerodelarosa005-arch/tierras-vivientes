@@ -151,17 +151,26 @@ func _build_environment() -> void:
 	sky_mat = ProceduralSkyMaterial.new()
 	sky.sky_material = sky_mat
 	env.sky = sky
+	# Iluminación cálida y contrastada; la niebla se reserva para suavizar el horizonte.
+	sky_mat.sky_top_color = Color(0.16, 0.23, 0.31)
+	sky_mat.sky_horizon_color = Color(0.68, 0.48, 0.35)
+	sky_mat.ground_bottom_color = Color(0.10, 0.12, 0.11)
+	sky_mat.ground_horizon_color = Color(0.30, 0.29, 0.25)
+	sky_mat.sun_angle_max = 18.0
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.8
+	env.ambient_light_energy = 0.95
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_density = 0.006
-	env.fog_sky_affect = 0.3
+	env.fog_density = 0.0028
+	env.fog_sky_affect = 0.22
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-38.0, -28.0, 0.0)
+	sun.light_color = Color(1.0, 0.86, 0.70)
+	sun.light_energy = 1.15
 	sun.shadow_enabled = not xr
-	sun.directional_shadow_max_distance = 45.0
+	sun.directional_shadow_max_distance = 38.0
 	add_child(sun)
 	var mm := Util.mat(Color(0.91, 0.93, 0.99), Color(0, 0, 0, 0), 1.0, true).duplicate() as StandardMaterial3D
 	mm.set("disable_fog", true)
