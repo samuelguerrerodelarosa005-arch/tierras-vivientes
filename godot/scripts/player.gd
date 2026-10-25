@@ -37,6 +37,14 @@ var tp_ring: MeshInstance3D
 var tp_target = null
 var tp_active := false
 var channel: Dictionary = {}
+# hechizo preparado con un gesto: láser para apuntar y se lanza con el movimiento de lanzar
+var ready_spell: Dictionary = {}   # {"spell": int, "side": String, "t": float}
+var aim_root: Node3D
+var aim_mat: StandardMaterial3D
+var aim_dot: MeshInstance3D
+var ready_orb: MeshInstance3D
+const READY_TIMEOUT := 8.0
+const THROW_SPEED := 2.2
 var charge_orb: MeshInstance3D
 var hover_host: Node = null
 var press_host: Node = null
@@ -181,6 +189,19 @@ func _build_xr_helpers() -> void:
 	# orbe de hechizo
 	charge_orb = Util.sphere(self, 0.06, Util.mat(Color(1, 0.6, 0.2), Color(1, 0.6, 0.2), 3.0, true, 0.85).duplicate(), Vector3.ZERO, 10, 5)
 	charge_orb.visible = false
+	# láser de puntería y orbe del hechizo preparado
+	aim_root = Node3D.new()
+	main.add_child(aim_root)
+	aim_mat = Util.mat(Color(1, 0.6, 0.2), Color(1, 0.6, 0.2), 2.5, true, 0.75).duplicate()
+	var aim_line := Util.box(aim_root, Vector3(0.012, 0.012, 1.0), aim_mat, Vector3(0, 0, -0.5))
+	aim_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	aim_root.visible = false
+	aim_dot = Util.sphere(main, 0.12, aim_mat, Vector3.ZERO, 12, 6)
+	aim_dot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	aim_dot.visible = false
+	ready_orb = Util.sphere(main, 0.07, aim_mat, Vector3.ZERO, 12, 6)
+	ready_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ready_orb.visible = false
 
 
 # ---------- brazos en primera persona (PC) ----------
@@ -556,6 +577,13 @@ func xr_frame(delta: float) -> void:
 				cast_from_left(pw)
 			channel = {}
 			charge_orb.visible = false
+		else:
+			show_aim(hp, ray("left")[1], col)
+	# hechizo preparado con un gesto
+	if not ready_spell.is_empty():
+		_update_ready(delta)
+	elif channel.is_empty():
+		hide_aim()
 	# gestos personalizados: mantener el agarre (puño o botón lateral) y trazar
 	_gesture_input()
 	# panel de la muñeca
@@ -564,6 +592,90 @@ func xr_frame(delta: float) -> void:
 	_pointer(R)
 	if R.b_down and main.dialogue.npc:
 		main.dialogue.close()
+
+
+## Prepara un hechizo en una mano: aparece el láser y se lanza con el gesto de lanzar
+## (mover la mano rápido hacia delante) o con el gatillo / pellizco.
+func prepare_spell(i: int, side: String) -> void:
+	if Game.mp < float(Game.SPELLS[i].mp):
+		Game.say("No te alcanza el maná.", "bad")
+		return
+	ready_spell = {"spell": i, "side": side, "t": 0.0}
+	Sfx.play("shield", 1.6)
+	main.buzz(side, 0.3, 0.05)
+	main.vr_toast("%s preparada: apunta con el láser y haz el gesto de lanzar." % Game.SPELLS[i].name)
+
+
+func cancel_ready() -> void:
+	ready_spell = {}
+	if ready_orb:
+		ready_orb.visible = false
+	hide_aim()
+
+
+func _update_ready(delta: float) -> void:
+	var side: String = ready_spell.side
+	if not pads.has(side):
+		return
+	var p: Dictionary = pads[side]
+	ready_spell.t += delta
+	var hp := holder(side).global_position
+	var d: Vector3 = ray(side)[1]
+	var col: Color = Game.SPELLS[ready_spell.spell].color
+	ready_orb.visible = true
+	ready_orb.global_position = hp + Vector3(0, 0.05, 0)
+	ready_orb.scale = Vector3.ONE * (1.0 + sin(ready_spell.t * 12.0) * 0.15)
+	show_aim(hp, d, col)
+	if ready_spell.t > 0.4:
+		var v: Vector3 = p.vel
+		var thrown := v.length() > THROW_SPEED and v.normalized().dot(d) > 0.3
+		if thrown or p.trig_down:
+			var dir := (d * 0.7 + v.normalized() * 0.3).normalized() if thrown else d
+			var power := 1.0 + clampf((v.length() - THROW_SPEED) * 0.05, 0.0, 0.15) if thrown else 1.0
+			main.cast_spell(ready_spell.spell, hp + dir * 0.15, dir, power)
+			main.buzz(side, 0.9, 0.08)
+			cancel_ready()
+			return
+	if ready_spell.t > READY_TIMEOUT:
+		main.vr_toast("El hechizo se desvaneció.")
+		cancel_ready()
+
+
+## Donde caería el hechizo: el primer limo cerca del rayo o el suelo (hasta 30 m).
+func aim_hit(o: Vector3, d: Vector3) -> Dictionary:
+	var t := 0.3
+	while t < 30.0:
+		var pt := o + d * t
+		for s in main.slimes:
+			if s.alive and (s.global_position + Vector3(0, 0.42, 0)).distance_to(pt) < 0.8:
+				return {"point": pt, "target": true}
+		var g := 0.0 if pt.x > 250.0 else Util.terrain_h(pt.x, pt.z)
+		if pt.y < g:
+			return {"point": Vector3(pt.x, g, pt.z), "target": false}
+		t += 0.3
+	return {"point": o + d * 30.0, "target": false}
+
+
+func show_aim(o: Vector3, d: Vector3, col: Color) -> void:
+	if aim_root == null:
+		return
+	var hit := aim_hit(o, d)
+	var length := maxf(o.distance_to(hit.point), 0.05)
+	var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.98 else Vector3.FORWARD
+	aim_root.visible = true
+	aim_root.global_transform = Transform3D(Basis.looking_at(d, up), o)
+	aim_root.scale = Vector3(1, 1, length)
+	aim_mat.albedo_color = Color(col.r, col.g, col.b, 0.85 if hit.target else 0.6)
+	aim_mat.emission = col
+	aim_dot.visible = true
+	aim_dot.global_position = hit.point
+	aim_dot.scale = Vector3.ONE * (1.6 if hit.target else 1.0)
+
+
+func hide_aim() -> void:
+	if aim_root:
+		aim_root.visible = false
+		aim_dot.visible = false
 
 
 func cast_from_left(power: float) -> void:
@@ -578,6 +690,16 @@ func cast_from_left(power: float) -> void:
 
 
 func _pointer(R: Dictionary) -> void:
+	if not ready_spell.is_empty() and ready_spell.side == "right":
+		# la mano derecha sostiene el hechizo: el láser de puntería sustituye al rayo normal
+		if hover_host:
+			hover_host.pointer_exit()
+			hover_host = null
+		ray_root.visible = false
+		ray_dot.visible = false
+		main.show_target({})
+		return
+	ray_root.visible = true
 	var rd := ray("right")
 	var o: Vector3 = rd[0]
 	var d: Vector3 = rd[1]

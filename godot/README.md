@@ -53,6 +53,12 @@ Los nombres exactos de algunas opciones pueden variar un poco en la 4.8-beta.
   girar…) y traza el gesto 3 veces. Después, mantén el **agarre** (puño o botón lateral del mando) y dibújalo en el aire:
   se ejecuta. En PC funciona igual manteniendo el **clic derecho** y dibujando con el ratón. Hazlo siempre en el mismo
   sentido y con la misma forma; el tamaño y hacia dónde mires no importan.
+- **Lanzar con gesto**: si el gesto es la **Bola de fuego**, no se lanza al momento. Queda **preparada** en esa mano
+  con un **láser** de su color que marca dónde caerá (el punto crece si apuntas a un limo). Apunta y **haz el
+  movimiento de lanzar** (mano rápida hacia delante) o pulsa el gatillo / pellizca. El maná se gasta al lanzarla;
+  si no la lanzas en 8 s se desvanece sin gastar nada. Escudo y Curar se lanzan al instante (no hay que apuntar).
+  En PC: el gesto la prepara y el **clic izquierdo** la lanza hacia la mira. El gatillo izquierdo también muestra
+  el láser mientras canalizas.
 - **Comer**: la comida aparece en tu mano derecha; llévala a la boca (3 mordidas).
 - **Forjar**: golpea el yunque con el martillo o pulsa el gatillo cuando la marca esté en la luz.
 
@@ -69,6 +75,8 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
 
 - **Hechizos por voz**: Godot no trae reconocimiento de voz. Hace falta un plugin (por ejemplo el Voice SDK de Meta
   o Whisper). Mientras tanto, los hechizos se lanzan con gesto, gatillo o teclas.
+- **Lanzamiento probado solo en simulación**: el umbral del gesto de lanzar (2,2 m/s, `THROW_SPEED` en
+  `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
 - **Voces de los habitantes**: usan el texto a voz del sistema (Windows o Android). La calidad depende del dispositivo.
 
 ## Mejorar los gráficos
@@ -86,7 +94,7 @@ Cada parte del mundo está en una función de `scripts/world.gd` (`_bakery`, `_f
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 28 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, guardado
+godot --headless --path godot -- --smoke   # 33 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 ```
 

@@ -276,6 +276,27 @@ func gesture_trail_end() -> void:
 		trail_line.visible = false
 
 
+func set_ready(text: String, col: Color = Color(1, 0.6, 0.2)) -> void:
+	if not refs.has("ready"):
+		if hud == null or text == "":
+			return
+		var l := L("", 18, col, false)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.anchor_left = 0.5
+		l.anchor_right = 0.5
+		l.anchor_top = 0.5
+		l.anchor_bottom = 0.5
+		l.offset_left = -300
+		l.offset_right = 300
+		l.offset_top = 26
+		l.offset_bottom = 56
+		hud.add_child(l)
+		refs.ready = l
+	refs.ready.text = text
+	refs.ready.add_theme_color_override("font_color", col)
+	refs.ready.visible = text != ""
+
+
 func set_gesture_hint(text: String) -> void:
 	if refs.has("prompt"):
 		refs.prompt.visible = true
@@ -1045,7 +1066,7 @@ func _build_help() -> void:
 		["PC", "WASD moverte · Mayús correr · ratón mirar (clic para fijarlo) · clic lanzar hechizo · 1/2/3 fuego, escudo, curar · E hablar/recoger/forjar · F comer · Espacio saltar · I inventario · R rumores · H controles · Esc cerrar"],
 		["Quest con mandos", "Stick izquierdo moverte · stick derecho girar · gatillo derecho apuntar y usar · gatillo izquierdo canalizar el hechizo y soltar lanzando la mano · X cambiar hechizo · A saltar · B cerrar diálogo · baja la mano izquierda para ver tu panel de muñeca"],
 		["Quest con las manos", "Pellizco derecho apuntando: usar · pellizca el suelo y suelta: moverte · pellizco izquierdo: canalizar hechizo, suelta mientras lanzas la mano · baja la mano izquierda: panel (girar, saltar, comer, menú)"],
-		["Gestos propios", "Menú → Gestos: elige qué quieres que haga y graba el trazo 3 veces. Luego, en VR mantén el agarre y dibújalo en el aire; en PC mantén el clic derecho y dibújalo con el ratón."],
+		["Gestos propios", "Menú → Gestos: elige qué quieres que haga y graba el trazo 3 veces. Luego, en VR mantén el agarre y dibújalo en el aire; en PC mantén el clic derecho y dibújalo con el ratón. La Bola de fuego queda preparada con un láser para apuntar: lánzala moviendo la mano rápido hacia delante (o gatillo). En PC, clic para lanzarla."],
 		["Comer y forjar", "La comida aparece en tu mano derecha: llévala a la boca, tres mordidas. En la forja, golpea el yunque con el martillo o pulsa el gatillo cuando la marca esté en la luz."],
 	]
 	for bl in blocks:

@@ -27,6 +27,7 @@ var ui: CanvasLayer
 var dialogue: Node
 var gestures: Node
 var mouse_trail := Vector2.ZERO
+var desk_ready: Dictionary = {}   # hechizo preparado con un gesto en PC
 var avatar: Node3D
 var npcs: Array = []
 var slimes: Array = []
@@ -464,6 +465,18 @@ func do_action(a: String, src: String = "") -> void:
 	if a.begins_with("spell:"):
 		var i := int(a.split(":")[1])
 		set_spell(i)
+		if Game.SPELLS[i].id == "fuego":
+			# hechizo que se lanza: se prepara, se apunta y se lanza
+			if xr:
+				player.prepare_spell(i, src if src in ["left", "right"] else "right")
+			elif Game.mp < float(Game.SPELLS[i].mp):
+				Game.say("No te alcanza el maná.", "bad")
+			else:
+				desk_ready = {"spell": i, "t": 0.0}
+				Sfx.play("shield", 1.6)
+				ui.set_ready("%s preparada · apunta y haz clic para lanzarla" % Game.SPELLS[i].name, Game.SPELLS[i].color)
+			return
+		# escudo y curar actúan sobre ti: se lanzan al momento
 		if xr:
 			var side := src if src in ["left", "right"] else "right"
 			var r: Array = player.ray(side)
@@ -507,6 +520,19 @@ func do_action(a: String, src: String = "") -> void:
 	vr_toast("Gesto: " + gestures.action_name(a))
 	if not xr:
 		ui.set_gesture_hint("Gesto: " + gestures.action_name(a))
+
+
+## PC: lanza el hechizo preparado hacia la mira.
+func release_ready() -> void:
+	if desk_ready.is_empty():
+		return
+	var i: int = desk_ready.spell
+	desk_ready = {}
+	ui.set_ready("")
+	var cam: Camera3D = player.camera
+	var d: Vector3 = -cam.global_transform.basis.z
+	if cast_spell(i, cam.global_position + d * 0.7 + Vector3(0, -0.15, 0), d, 1.05):
+		player.cast_anim = 0.35
 
 
 func on_gesture_record_start(action: String) -> void:
@@ -587,7 +613,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if forge.active:
 			forge_desktop_hit()
 		elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			if dialogue.npc == null:
+			if not desk_ready.is_empty():
+				release_ready()
+			elif dialogue.npc == null:
 				cast_from_camera()
 		elif not ui.any_open() and dialogue.npc == null:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -1254,6 +1282,12 @@ func _process(delta: float) -> void:
 			shield_mesh.global_position = player_pos() + Vector3(0, 1, 0)
 		else:
 			shield_mesh.visible = false
+		if not desk_ready.is_empty():
+			desk_ready.t += dt
+			if desk_ready.t > 8.0:
+				desk_ready = {}
+				ui.set_ready("")
+				Game.say("El hechizo preparado se desvaneció.")
 		if xr:
 			player.xr_frame(dt)
 		else:
@@ -1576,7 +1610,11 @@ func _run_smoke() -> void:
 	Game.mp = Game.max_mp
 	var mp_g := Game.mp
 	var r1 := _feed_gesture(_g_circle(0.15, 10.0))
-	_check(r1.result == "match" and r1.action == "spell:0" and Game.mp < mp_g, "repetir el círculo lanza la Bola de fuego (%s)" % str(r1), fails)
+	_check(r1.result == "match" and r1.action == "spell:0" and not desk_ready.is_empty() and Game.mp == mp_g, "repetir el círculo prepara la Bola de fuego sin gastar maná (%s)" % str(r1), fails)
+	release_ready()
+	_check(Game.mp < mp_g and desk_ready.is_empty(), "clic: se lanza el hechizo preparado", fails)
+	var aim: Dictionary = player.aim_hit(Vector3(10, 20, 10), Vector3(0, -1, 0))
+	_check(absf(aim.point.y - Util.terrain_h(10, 10)) < 0.35, "el láser de puntería encuentra el suelo", fails)
 	var r2 := _feed_gesture(_g_line(10.0))
 	_check(r2.result == "match" and r2.action == "jump", "repetir la línea hace Saltar", fails)
 	var r3 := _feed_gesture(_g_zigzag())
@@ -1584,6 +1622,23 @@ func _run_smoke() -> void:
 	gestures.save_all()
 	gestures.load_all()
 	_check(gestures.gestures.size() == 2, "los gestos se guardan en el dispositivo", fails)
+	# VR: preparar, apuntar con el láser y lanzar con el movimiento de la mano
+	if player.aim_root == null:
+		player._build_xr_helpers()
+	Game.mp = Game.max_mp
+	var mp_v := Game.mp
+	player.prepare_spell(0, "right")
+	player._update_ready(0.1)
+	_check(not player.ready_spell.is_empty() and player.aim_root.visible and Game.mp == mp_v, "VR: hechizo preparado con láser, sin gastar maná", fails)
+	var aim_d: Vector3 = player.ray("right")[1]
+	player.pads.right.vel = aim_d * 1.0
+	player._update_ready(0.5)
+	_check(not player.ready_spell.is_empty(), "VR: mover la mano despacio no lo lanza", fails)
+	player.pads.right.vel = aim_d * 3.5
+	player._update_ready(0.02)
+	_check(player.ready_spell.is_empty() and Game.mp < mp_v and not player.aim_root.visible, "VR: el gesto de lanzar dispara el hechizo", fails)
+	player.pads.right.vel = Vector3.ZERO
+	player.ray_root.visible = false
 	ui.open_menu("menu", "gestos")
 	await _wait(0.2)
 	_check(ui.is_open("menu"), "pestaña Gestos del menú", fails)
