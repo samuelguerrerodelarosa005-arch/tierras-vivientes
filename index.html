@@ -1,0 +1,1662 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tierras Vivas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Marcellus+SC&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas; translucent "system windows" (blue status panels from the LitRPG genre) float over it, anchored to the screen corners. */
+:root{
+  --ink:#0b1620;
+  --glass:rgba(12,28,40,.80);
+  --glass-strong:rgba(10,22,32,.94);
+  --line:rgba(120,196,226,.38);
+  --line-soft:rgba(120,196,226,.18);
+  --text:#e4eff3;
+  --muted:#93aeba;
+  --sys:#6cc9e6;
+  --brass:#e9b44c;
+  --hp:#e0625b;
+  --mp:#5d8dff;
+  --st:#7ccf8a;
+  --ok:#7ccf8a;
+  --bad:#e0625b;
+  --f-display:"Marcellus SC","Trajan Pro",Georgia,serif;
+  --f-body:"Barlow","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+.field{min-width:0} .field input,.field select{width:100%;min-width:0}
+html,body{height:100%;overflow:hidden;margin:0}
+body{background:var(--ink);color:var(--text);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+#stage{position:fixed;inset:0}
+#view{display:block;width:100%;height:100%;outline:none;touch-action:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.win{background:var(--glass);border:1px solid var(--line);border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.03);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sys)}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:5px;border:1px solid var(--line);background:rgba(108,201,230,.08);transition:background .15s,border-color .15s}
+.btn:hover{background:rgba(108,201,230,.18);border-color:var(--sys)}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#1b1305;font-weight:700}
+.btn.primary:hover{background:#f3c766}
+.btn.small{padding:5px 9px;font-size:13px}
+.btn[aria-pressed="true"]{border-color:var(--brass);color:var(--brass)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- creator ---------- */
+#creator{position:absolute;top:max(14px,env(safe-area-inset-top,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));left:max(14px,env(safe-area-inset-left,0px));width:min(430px,calc(100% - 28px));overflow-y:auto;padding:20px 20px 18px;display:flex;flex-direction:column;gap:16px}
+#creator header{display:flex;flex-direction:column;gap:4px}
+#creator h1{font-size:34px;letter-spacing:.02em;color:var(--brass)}
+#creator header p{margin:0;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.field>.lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=text],select{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+input[type=range]{width:100%;accent-color:var(--brass)}
+.sw{display:flex;flex-wrap:wrap;gap:7px}
+.sw button{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.15);padding:0}
+.sw button[aria-pressed="true"]{border-color:var(--brass);box-shadow:0 0 0 2px rgba(233,180,76,.35)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.card{text-align:left;padding:9px 10px;border-radius:5px;border:1px solid var(--line-soft);background:rgba(0,0,0,.2);display:flex;flex-direction:column;gap:2px}
+.card b{font-weight:600}
+.card small{color:var(--muted);font-size:12px;line-height:1.3}
+.card[aria-pressed="true"]{border-color:var(--brass);background:rgba(233,180,76,.10)}
+.syn{border:1px dashed var(--line);border-radius:5px;padding:10px 12px;font-size:14px}
+.syn .eyebrow{display:block;margin-bottom:3px}
+.cta{display:flex;flex-wrap:wrap;gap:8px}
+.cta .btn{flex:1 1 160px;padding:11px 14px}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#left{position:absolute;top:max(12px,env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));width:min(270px,calc(50% - 18px));display:flex;flex-direction:column;gap:8px;max-height:calc(100% - 200px)}
+#stats{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+#stats .who{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+#stats .who b{font-family:var(--f-display);font-weight:400;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#stats .who span{font-size:12px;color:var(--muted);white-space:nowrap}
+.bar{position:relative;height:9px;border-radius:5px;background:rgba(0,0,0,.4);overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:5px;transition:width .15s}
+.bar.hp i{background:var(--hp)} .bar.mp i{background:var(--mp)} .bar.st i{background:var(--st)} .bar.xp{height:4px} .bar.xp i{background:var(--brass)}
+.barlbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:-3px}
+#titleLine{font-size:12px;color:var(--brass);min-height:0}
+#clock{position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));padding:9px 12px;display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:calc(50% - 18px)}
+#clockTime{font-size:22px}
+#clockSub{font-size:12px;color:var(--muted);text-align:right}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line-soft)}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.chip.on{border-color:var(--sys);color:var(--sys)} .chip.on::before{background:var(--sys);box-shadow:0 0 8px var(--sys)}
+#gold{font-size:13px;color:var(--brass)}
+#quests{padding:9px 12px;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto}
+#quests h3{font-size:14px;color:var(--sys)}
+#questList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13px}
+#questList li b{font-weight:600}
+#questList li small{display:block;color:var(--muted)}
+#questList li.done b{color:var(--ok)}
+#prompt{position:absolute;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 92px);transform:translateX(-50%);padding:7px 14px;font-size:14px;white-space:nowrap;pointer-events:none}
+#prompt kbd{font-family:var(--f-mono);border:1px solid var(--line);border-radius:4px;padding:0 6px;margin-right:6px;color:var(--brass)}
+#cross{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none}
+#cross::before,#cross::after{content:"";position:absolute;background:rgba(255,255,255,.75)}
+#cross::before{left:6px;top:0;width:2px;height:14px}
+#cross::after{top:6px;left:0;height:2px;width:14px}
+#hotbar{position:absolute;left:50%;bottom:max(12px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;padding:6px}
+.slot{width:76px;padding:6px 4px 5px;border-radius:5px;border:1px solid var(--line-soft);background:rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;gap:1px;font-size:12px;position:relative}
+.slot .k{position:absolute;top:2px;left:5px;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.slot .ic{width:18px;height:18px;border-radius:50%;margin-top:4px}
+.slot .mp{font-family:var(--f-mono);font-size:10px;color:var(--mp)}
+.slot[aria-pressed="true"]{border-color:var(--brass)}
+#tools{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:min(360px,calc(100% - 24px))}
+#tools .btn{background:var(--glass);font-size:13px;padding:6px 10px}
+#toasts{position:absolute;top:calc(max(12px,env(safe-area-inset-top,0px)) + 8px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:min(460px,calc(100% - 32px));z-index:30}
+.toast{background:var(--glass-strong);border:1px solid var(--line);border-left:3px solid var(--sys);border-radius:5px;padding:7px 12px;font-size:14px;animation:tin .25s ease-out;max-width:100%}
+.toast.gold{border-left-color:var(--brass)} .toast.bad{border-left-color:var(--bad)}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#hurt{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 120px 30px rgba(200,40,40,.0);transition:box-shadow .3s}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .5s;z-index:40}
+
+/* dialog */
+#dialog{position:absolute;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 100px);transform:translateX(-50%);width:min(620px,calc(100% - 24px));padding:14px 16px;display:flex;flex-direction:column;gap:10px;z-index:20}
+#dlgHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+#dlgName{font-size:22px;color:var(--brass)}
+#dlgRole{color:var(--muted);font-size:13px}
+.aff{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.aff .bar{width:90px;height:6px}
+.aff .bar i{background:var(--brass)}
+#dlgText{font-size:17px;line-height:1.5;min-height:52px;max-height:30vh;overflow:auto;max-width:65ch}
+#dlgText .you{display:block;color:var(--sys);font-size:14px;margin-bottom:4px}
+#dlgOffer{border:1px solid var(--brass);border-radius:5px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;background:rgba(233,180,76,.07)}
+#dlgOffer h3{font-size:16px;color:var(--brass)}
+#dlgOffer p{margin:0;font-size:14px}
+#dlgOptions{display:flex;flex-wrap:wrap;gap:6px}
+#dlgInputRow{display:flex;gap:6px}
+#dlgInput{flex:1;min-width:0;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+#aiNote{font-size:11px;color:var(--muted)}
+
+/* forge */
+#forge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100% - 24px));padding:16px;display:flex;flex-direction:column;gap:10px;z-index:20}
+#forge h2{color:var(--brass);font-size:22px}
+#forgeBar{position:relative;height:30px;border-radius:5px;background:linear-gradient(90deg,#2a1208,#7a2e0e 50%,#2a1208);overflow:hidden;border:1px solid rgba(255,140,60,.4)}
+#fZone{position:absolute;top:0;bottom:0;background:rgba(255,214,120,.55);box-shadow:0 0 18px rgba(255,200,90,.8)}
+#fMark{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 8px #fff}
+#fHits{display:flex;gap:6px;min-height:22px}
+#fHits span{font-family:var(--f-mono);font-size:12px;padding:2px 7px;border-radius:4px;background:rgba(0,0,0,.35)}
+.hint{margin:0;color:var(--muted);font-size:13px}
+
+/* generic panel */
+#panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 24px));max-height:min(78vh,640px);display:flex;flex-direction:column;z-index:25}
+#panelHead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+#panelHead h2{font-size:20px;color:var(--brass)}
+#panelBody{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;border:1px solid var(--line-soft);border-radius:5px;background:rgba(0,0,0,.18)}
+.list li .grow{flex:1;min-width:0}
+.list li small{display:block;color:var(--muted);font-size:12px}
+.list .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.price{width:64px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-family:var(--f-mono)}
+.sect{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--sys);margin-top:4px}
+.setting{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.warn{font-size:12px;color:var(--brass);margin:0}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.keys kbd{font-family:var(--f-mono);font-size:12px;color:var(--brass);white-space:nowrap}
+
+/* touch */
+#touch{position:absolute;inset:0;pointer-events:none}
+#joy{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 70px);width:120px;height:120px;border-radius:50%;border:1px solid var(--line);background:rgba(10,22,32,.35);pointer-events:auto;touch-action:none}
+#knob{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:rgba(108,201,230,.45)}
+#tbtns{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 70px);display:grid;grid-template-columns:repeat(2,64px);gap:8px;pointer-events:auto}
+#tbtns .btn{height:56px;background:var(--glass);font-size:12px}
+
+@media (max-width:700px){
+  #creator{top:auto;height:58%;width:calc(100% - 28px)}
+  #creator h1{font-size:28px}
+  #quests{display:none}
+  #hud.showq #quests{display:flex}
+  .slot{width:62px}
+  #tools{flex-direction:column;align-items:flex-end;flex-wrap:nowrap;top:calc(max(12px,env(safe-area-inset-top,0px)) + 150px);bottom:auto;max-width:150px}
+  #tools .btn{padding:5px 8px;font-size:12px}
+  #tools .btn .mono{display:none}
+  #joy{bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 96px)}
+  #tbtns{bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 96px);grid-template-columns:repeat(2,58px)}
+  #stats .who span{display:none}
+  #left{width:calc(55% - 18px)}
+  #clock{max-width:calc(45% - 18px)}
+  #clockTime{font-size:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="view" tabindex="0" aria-label="Mundo 3D de Tierras Vivas"></canvas></div>
+
+<section id="creator" class="win" aria-label="Creación de personaje">
+  <header>
+    <span class="eyebrow">Ventana de creación · Viajero nuevo</span>
+    <h1>Tierras Vivas</h1>
+    <p>Valdeluz, al atardecer. Sus habitantes recordarán lo que hagas.</p>
+  </header>
+  <div class="field"><label for="cName">Nombre</label><input id="cName" type="text" maxlength="16" value="Viajero" autocomplete="off"></div>
+  <div class="row2">
+    <div class="field"><label for="cHeight">Altura <span id="cHeightV" class="mono">1.75 m</span></label><input id="cHeight" type="range" min="1.55" max="1.95" step="0.01" value="1.75"></div>
+    <div class="field"><label for="cBuild">Complexión</label><input id="cBuild" type="range" min="0.85" max="1.3" step="0.01" value="1"></div>
+  </div>
+  <div class="field"><span class="lbl">Piel</span><div class="sw" id="swSkin" role="group" aria-label="Color de piel"></div></div>
+  <div class="row2">
+    <div class="field"><label for="cHair">Peinado</label>
+      <select id="cHair"><option value="corto">Corto</option><option value="largo">Largo</option><option value="coleta">Coleta</option><option value="rapado">Rapado</option></select></div>
+    <div class="field"><label for="cCape">Capa</label>
+      <select id="cCape"><option value="si">Con capa</option><option value="no">Sin capa</option></select></div>
+  </div>
+  <div class="field"><span class="lbl">Color de cabello</span><div class="sw" id="swHair" role="group" aria-label="Color de cabello"></div></div>
+  <div class="field"><span class="lbl">Ropa</span><div class="sw" id="swOutfit" role="group" aria-label="Color de ropa"></div></div>
+  <div class="field"><span class="lbl">Trabajo principal · efecto completo y vida/maná base</span><div class="cards" id="clsCards"></div></div>
+  <div class="field"><span class="lbl">Trabajo secundario · mitad del efecto</span><div class="cards" id="subCards"></div></div>
+  <div class="syn" id="synBox"></div>
+  <div class="cta">
+    <button class="btn primary" id="btnStart">Entrar a Valdeluz</button>
+    <button class="btn" id="btnContinue" hidden>Continuar partida</button>
+  </div>
+</section>
+
+<div id="hud" hidden>
+  <div id="hurt"></div>
+  <div id="left">
+  <div id="stats" class="win">
+    <div class="who"><b id="hName">Viajero</b><span id="hClass">—</span></div>
+    <div id="titleLine" hidden></div>
+    <div class="barlbl"><span>Vida</span><span class="mono" id="hpT">100</span></div><div class="bar hp"><i id="hpB"></i></div>
+    <div class="barlbl"><span>Maná</span><span class="mono" id="mpT">100</span></div><div class="bar mp"><i id="mpB"></i></div>
+    <div class="barlbl"><span>Energía</span><span class="mono" id="stT">100</span></div><div class="bar st"><i id="stB"></i></div>
+    <div class="barlbl"><span>Nivel <span id="lvT" class="mono">1</span></span><span class="mono" id="xpT">0/100</span></div><div class="bar xp"><i id="xpB"></i></div>
+  </div>
+    <div id="quests" class="win"><h3>Misiones</h3><ul id="questList"></ul></div>
+  </div>
+<div id="clock" class="win">
+    <span class="mono" id="clockTime">17:30</span>
+    <span id="clockSub">Día 1 · Luna nueva</span>
+    <span class="chip" id="portalChip">Portal cerrado</span>
+    <span class="mono" id="gold">25 monedas</span>
+  </div>
+  <div id="cross"></div>
+  <div id="prompt" class="win" hidden></div>
+  <div id="hotbar" class="win"></div>
+  <div id="tools">
+    <button class="btn" id="tInv">Inventario <span class="mono">I</span></button>
+    <button class="btn" id="tRum">Rumores <span class="mono">R</span></button>
+    <button class="btn" id="tRest">Descansar 1 h</button>
+    <button class="btn" id="tQuest">Misiones</button>
+    <button class="btn" id="tMic" hidden aria-pressed="false">Voz <span class="mono">Q</span></button>
+    <button class="btn" id="tSet">Ajustes</button>
+    <button class="btn" id="tHelp">Controles</button>
+    <button class="btn primary" id="tVR" hidden>Entrar en VR</button>
+  </div>
+  <div id="touch" hidden>
+    <div id="joy"><div id="knob"></div></div>
+    <div id="tbtns">
+      <button class="btn" id="tbAct">Usar</button>
+      <button class="btn" id="tbCast">Hechizo</button>
+      <button class="btn" id="tbJump">Saltar</button>
+      <button class="btn" id="tbEat">Comer</button>
+    </div>
+  </div>
+</div>
+
+<section id="dialog" class="win" hidden aria-live="polite">
+  <div id="dlgHead">
+    <div><h2 id="dlgName">—</h2><span id="dlgRole"></span></div>
+    <div class="aff"><span>Afinidad</span><div class="bar"><i id="dlgAffB"></i></div><span class="mono" id="dlgAffT">0</span></div>
+  </div>
+  <div id="dlgText"></div>
+  <div id="dlgOffer" hidden></div>
+  <div id="dlgOptions"></div>
+  <div id="dlgInputRow">
+    <input id="dlgInput" type="text" maxlength="160" placeholder="Escribe lo que le dices…" autocomplete="off">
+    <button class="btn" id="dlgMic" hidden>Hablar</button>
+    <button class="btn" id="dlgSend">Decir</button>
+  </div>
+  <span id="aiNote"></span>
+</section>
+
+<section id="forge" class="win" hidden>
+  <span class="eyebrow">Yunque de Maese Dorran</span>
+  <h2>Forjar espada</h2>
+  <p class="hint" id="forgeInfo"></p>
+  <div id="forgeBar"><div id="fZone"></div><div id="fMark"></div></div>
+  <div id="fHits"></div>
+  <p class="hint">Golpea con <b>Espacio</b> o clic cuando la marca blanca esté en la zona brillante. Cinco golpes. <b>Esc</b> para salir.</p>
+</section>
+
+<section id="panel" class="win" hidden role="dialog" aria-modal="false">
+  <div id="panelHead"><h2 id="panelTitle">—</h2><button class="btn small" id="panelClose">Cerrar</button></div>
+  <div id="panelBody"></div>
+</section>
+
+<div id="toasts"></div>
+<div id="fade"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+'use strict';
+(function(){
+const T = window.THREE;
+const $ = s => document.querySelector(s);
+const TAU = Math.PI*2;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t, rand=(a,b)=>a+Math.random()*(b-a);
+const smooth=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t)};
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SAVE_KEY='tierras-vivas-save-v1';
+const V3=()=>new T.Vector3();
+const tmpA=V3(), tmpB=V3(), tmpC=V3();
+
+if(!T){ document.body.insertAdjacentHTML('beforeend','<p style="position:fixed;inset:auto 0 40% 0;text-align:center">No se pudo cargar el motor 3D. Revisa tu conexión y recarga.</p>'); return; }
+
+/* ================= DATA ================= */
+const JOBS={
+  elementalista:{name:'Elementalista',kind:'Combate · Magia',hp:90,mp:130,p:'Bola de fuego +40 % de daño.',s:'Bola de fuego +20 % de daño.'},
+  guardian:{name:'Guardián',kind:'Combate · Defensa',hp:150,mp:80,p:'Mucha vida; el escudo dura el doble.',s:'+20 de vida; el escudo dura +50 %.'},
+  sanador:{name:'Sanador',kind:'Combate · Soporte',hp:105,mp:115,p:'Curar restaura el doble.',s:'Curar restaura +50 %.'},
+  herrero:{name:'Herrero',kind:'Oficio · Forja',hp:120,mp:85,p:'Zona de golpe +80 %; con más de 70 % de precisión la espada sube un grado.',s:'Zona de golpe +40 % en la forja.'},
+  cocinero:{name:'Cocinero',kind:'Oficio · Cocina',hp:110,mp:95,p:'La comida restaura ×2,5 y su efecto dura el doble.',s:'La comida restaura ×1,75.'},
+  comerciante:{name:'Comerciante',kind:'Oficio · Comercio',hp:105,mp:95,p:'Compras 25 % más barato; te pagan hasta +35 %.',s:'Compras 12 % más barato; te pagan hasta +17 %.'},
+  rastreador:{name:'Rastreador',kind:'Oficio · Caza',hp:115,mp:90,p:'Ves a los limos a 45 m a través de todo y les haces +15 % de daño.',s:'Ves a los limos a 25 m a través de todo.'},
+};
+const CLASSES=JOBS, SUBS=JOBS;
+const jw=id=>P.cls===id?1:P.sub===id?.5:0; // principal = efecto completo, secundario = mitad
+const hasJob=id=>jw(id)>0;
+const SYNERGY={
+  'guardian+herrero':'Escudo templado: con una espada forjada por ti, el escudo absorbe 80 % en lugar de 70 %.',
+  'cocinero+elementalista':'Cocina elemental: comer te da +25 % de daño de fuego durante 60 s.',
+  'elementalista+rastreador':'Fuego guiado: la bola de fuego se curva hacia limos cercanos.',
+  'cocinero+sanador':'Caldo curativo: Curar también restaura 40 de energía.',
+  'comerciante+sanador':'Boticario: cada venta en tu puesto te devuelve 10 de maná.',
+  'guardian+rastreador':'Centinela: los limos te hacen 20 % menos daño.',
+  'elementalista+herrero':'Fragua viva: forjar con el efecto de fuego activo sube la calidad un grado.',
+  'cocinero+herrero':'Fogón de forja: bien alimentado, tu zona de golpe es 15 % más ancha.',
+  'comerciante+herrero':'Marca de taller: los habitantes pagan hasta 30 % más por tus espadas.',
+  'cocinero+comerciante':'Pan de la casa: el pan de Bruno te cuesta la mitad.',
+  'guardian+sanador':'Muralla viva: Curar también te da 3 s de escudo.',
+  'herrero+rastreador':'Ojo de minero: cada roca te da 2 trozos de mineral.',
+};
+const pairKey=k=>k.split('+').sort().join('+');
+const synKey=()=>[P.cls,P.sub].sort().join('+');
+const hasSyn=k=>synKey()===pairKey(k);
+const SPELLS=[
+  {id:'fuego',name:'Bola de fuego',mp:12,color:0xff7a2a,css:'#ff7a2a',words:['fuego','bola','llama','fire']},
+  {id:'escudo',name:'Escudo',mp:18,color:0x6fd3ff,css:'#6fd3ff',words:['escudo','barrera','protec','shield']},
+  {id:'curar',name:'Curar',mp:22,color:0x9dff8a,css:'#9dff8a',words:['cura','sana','sanar','heal','vida']},
+];
+const ITEMS={
+  pan:{name:'Pan de Bruno',food:{hp:15,st:35,buff:60},base:5},
+  manzana:{name:'Manzana',food:{hp:10,st:15,buff:0},base:2},
+  trigo:{name:'Gavilla de trigo',base:3},
+  hierro:{name:'Mineral de hierro',base:6},
+  gel:{name:'Gel de limo',base:4},
+  cristal:{name:'Cristal lunar',base:30},
+};
+const GRADES=['Común','Rara','Épica','Única','Legendaria'];
+const GRADE_COL=['#c9d1d6','#6cc9e6','#b07cff','#e9b44c','#ff8a3d'];
+const SWORD_BASE=[12,25,45,80,140];
+function itemName(k){ if(k.startsWith('espada:')){const g=+k.split(':')[1]; return (g>=3?'Espada de '+P.name:'Espada')+' ('+GRADES[g]+')';} return ITEMS[k]?.name||k; }
+function itemBase(k){ if(k.startsWith('espada:')) return SWORD_BASE[+k.split(':')[1]]; return ITEMS[k]?.base||1; }
+const MOONS=['nueva','creciente','cuarto creciente','gibosa creciente','llena','gibosa menguante','cuarto menguante','menguante'];
+
+/* ================= STATE ================= */
+const P={name:'Viajero',look:{skin:'#d9a07a',hair:'#3a2618',hairStyle:'corto',outfit:'#3f6e8c',cape:true,height:1.75,build:1},
+  cls:'elementalista',sub:'herrero',pos:new T.Vector3(0,0,7),yaw:0,pitch:-0.05,vy:0,grounded:true,
+  hp:90,maxHp:90,mp:130,maxMp:130,st:100,maxSt:100,xp:0,lvl:1,gold:25,inv:{hierro:2,manzana:1},
+  titles:[],title:null,kills:0,bestGrade:-1,spell:0,shieldT:0,buffT:0,fireBuffT:0,alive:true,third:false,
+  seated:false,seatOffset:0.45,ruinsSeen:false,forgedOwn:false};
+const W={min:17*60+30,day:1,wheat:32,iron:3,breadPrice:4,hoarding:null,flags:{},rumorLog:[],oreT:{},crystalDay:0,appleT:[],fragment:null};
+let QUESTS=[]; // {id,progress,done}
+const doneAt={};
+let started=false;
+
+/* ================= AUDIO ================= */
+let AC=null,master=null;
+function initAudio(){ if(AC) return; try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.5;master.connect(AC.destination);}catch(e){AC=null} }
+function tone(f,d,type='sine',vol=.3,slide=0,delay=0){ if(!AC) return; try{const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+d);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(master);o.start(t);o.stop(t+d+.05);}catch(e){} }
+function noise(d,vol=.3,freq=1200,q=1,delay=0){ if(!AC) return; try{const t=AC.currentTime+delay,len=Math.floor(AC.sampleRate*d),b=AC.createBuffer(1,len,AC.sampleRate),dd=b.getChannelData(0);for(let i=0;i<len;i++)dd[i]=(Math.random()*2-1)*(1-i/len);const s=AC.createBufferSource();s.buffer=b;const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;const g=AC.createGain();g.gain.value=vol;s.connect(f);f.connect(g);g.connect(master);s.start(t);}catch(e){} }
+const SFX={
+  crunch(){noise(.12,.6,2200,.8);noise(.1,.45,1500,.8,.09)},
+  fire(){noise(.45,.35,500,.6);tone(220,.4,'sawtooth',.06,.5)},
+  boom(){noise(.5,.5,320,.5);tone(90,.45,'sine',.3,.4)},
+  shield(){tone(440,.6,'sine',.15,1.5);tone(660,.6,'sine',.1,1.5,.05)},
+  heal(){[523,659,784,1046].forEach((f,i)=>tone(f,.35,'sine',.12,1,i*.07))},
+  clang(q){const b=650+q*90;tone(b,.9,'triangle',.25,.98);tone(b*2.76,.6,'sine',.1);noise(.06,.3,4000,1)},
+  coin(){tone(1320,.1,'square',.06);tone(1760,.16,'square',.06,1,.08)},
+  hurt(){tone(170,.25,'sawtooth',.18,.6)},
+  squish(){noise(.2,.4,600,2);tone(300,.2,'sine',.15,.5)},
+  portal(){tone(110,1.2,'sine',.2,2);tone(165,1.2,'sine',.15,2)},
+  pick(){tone(880,.08,'sine',.14);tone(1175,.1,'sine',.12,1,.06)},
+  ui(){tone(660,.05,'sine',.07)},
+  level(){[392,523,659,784].forEach((f,i)=>tone(f,.3,'triangle',.14,1,i*.1))},
+  jump(){tone(300,.15,'sine',.07,1.6)},
+};
+
+/* ================= VOICE: TTS + STT ================= */
+const TTS={ok:'speechSynthesis' in window,on:true,voices:[]};
+function loadVoices(){ try{TTS.voices=speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang));}catch(e){} }
+if(TTS.ok){ loadVoices(); try{speechSynthesis.onvoiceschanged=loadVoices;}catch(e){} }
+function speak(text,voice,onStart,onEnd,vol=1){
+  let ended=false; const fin=()=>{ if(!ended){ended=true; onEnd&&onEnd();} };
+  if(!TTS.ok||!TTS.on){ onStart&&onStart(); setTimeout(fin,Math.min(9000,500+text.length*55)); return; }
+  try{
+    const u=new SpeechSynthesisUtterance(text); u.lang='es-ES';
+    if(TTS.voices.length){ u.voice=TTS.voices[voice.idx%TTS.voices.length]; u.lang=u.voice.lang; }
+    u.pitch=voice.pitch; u.rate=voice.rate; u.volume=vol;
+    u.onstart=()=>onStart&&onStart(); u.onend=fin; u.onerror=fin;
+    speechSynthesis.speak(u); setTimeout(fin,2500+text.length*95);
+  }catch(e){ fin(); }
+}
+const SRC=window.SpeechRecognition||window.webkitSpeechRecognition;
+const MIC={ok:!!SRC,active:null};
+function listen(onText,onEnd){
+  if(!MIC.ok) return false;
+  try{
+    const r=new SRC(); r.lang='es-US'; r.interimResults=true; r.maxAlternatives=2; r.continuous=false;
+    r.onresult=e=>{ let t=''; for(const res of e.results) t+=res[0].transcript; onText(t,e.results[e.results.length-1].isFinal); };
+    r.onerror=e=>{ if(['not-allowed','service-not-allowed','audio-capture'].includes(e.error)){ MIC.ok=false; refreshMicUI(); toast('El micrófono no está disponible en esta vista. Usa botones o teclado.','bad'); } };
+    r.onend=()=>{ MIC.active=null; onEnd&&onEnd(); };
+    r.start(); MIC.active=r; return true;
+  }catch(e){ MIC.ok=false; refreshMicUI(); return false; }
+}
+function stopListen(){ try{MIC.active&&MIC.active.stop();}catch(e){} }
+function spellFromSpeech(t){ const n=norm(t); return SPELLS.findIndex(s=>s.words.some(w=>n.includes(w))); }
+
+/* ================= AI for NPCs ================= */
+const AI={mode:'script',sample:null,key:'',warned:false};
+try{ AI.key=localStorage.getItem('tv-api-key')||''; }catch(e){}
+if(!window.claude && AI.key) AI.mode='api';
+(async()=>{ try{ if(window.claude&&window.claude.use){ const s=await window.claude.use('sample'); if(s){AI.sample=s;AI.mode='sample';updateAiNote();} } }catch(e){} })();
+function updateAiNote(){ const n=$('#aiNote'); if(!n) return;
+  n.textContent = AI.mode==='sample'?'Diálogo generado por Claude en tiempo real (usa tu cuenta; te pedirá permiso la primera vez).':
+    AI.mode==='api'?'Diálogo generado por Claude con tu clave de API.':'Diálogo con guion de respaldo. Con IA activa, cada habitante improvisa.'; }
+
+/* ================= RENDERER / SCENE ================= */
+const canvas=$('#view');
+const renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.xr.enabled=true; renderer.xr.setReferenceSpaceType('local-floor');
+try{ renderer.xr.setFoveation(1); }catch(e){}
+const scene=new T.Scene();
+const camera=new T.PerspectiveCamera(70,1,.05,700);
+const rig=new T.Group(); rig.add(camera); scene.add(rig);
+scene.fog=new T.Fog(0x9fb8c8,40,170);
+function resize(){ const w=canvas.clientWidth||innerWidth,h=canvas.clientHeight||innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+addEventListener('resize',resize); resize();
+
+const hemi=new T.HemisphereLight(0xcfe6ff,0x4a5a32,.6); scene.add(hemi);
+const sun=new T.DirectionalLight(0xfff1d6,1); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:160}); sun.shadow.bias=-.0008;
+scene.add(sun); scene.add(sun.target);
+
+const skyU={top:{value:new T.Color()},bot:{value:new T.Color()}};
+const sky=new T.Mesh(new T.SphereGeometry(450,24,16),new T.ShaderMaterial({uniforms:skyU,side:T.BackSide,depthWrite:false,fog:false,
+  vertexShader:'varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:'uniform vec3 top;uniform vec3 bot;varying vec3 vP;void main(){float h=clamp(vP.y*1.5+.12,0.,1.);gl_FragColor=vec4(mix(bot,top,pow(h,.75)),1.);}'}));
+sky.renderOrder=-10; scene.add(sky);
+const starGeo=new T.BufferGeometry(); { const a=[]; for(let i=0;i<700;i++){const u=Math.random()*TAU,v=Math.acos(rand(.05,1));a.push(Math.sin(v)*Math.cos(u)*430,Math.cos(v)*430,Math.sin(v)*Math.sin(u)*430);} starGeo.setAttribute('position',new T.Float32BufferAttribute(a,3)); }
+const stars=new T.Points(starGeo,new T.PointsMaterial({color:0xffffff,size:1.6,sizeAttenuation:false,transparent:true,opacity:0,fog:false,depthWrite:false})); scene.add(stars);
+const moon=new T.Mesh(new T.SphereGeometry(9,16,12),new T.MeshBasicMaterial({color:0xe8eefc,fog:false})); scene.add(moon);
+
+/* ================= HELPERS: materials, textures, labels ================= */
+const matCache={};
+function M(c,o={}){ const k=c+JSON.stringify(o); if(matCache[k]) return matCache[k]; const m=new T.MeshLambertMaterial(Object.assign({color:c},o)); return matCache[k]=m; }
+function mesh(geo,mat,x=0,y=0,z=0,parent){ const m=new T.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; if(parent) parent.add(m); return m; }
+const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.35,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);return new T.CanvasTexture(c);})();
+function wrapText(ctx,text,maxW){ const words=String(text).split(/\s+/),lines=[];let cur=''; for(const w of words){const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;} if(cur)lines.push(cur); return lines; }
+function rrect(ctx,x,y,w,h,r){ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath(); }
+function makeLabel(text,o={}){
+  const c=document.createElement('canvas'); c.width=o.w||512; c.height=o.h||128; const ctx=c.getContext('2d');
+  const tex=new T.CanvasTexture(c); tex.minFilter=T.LinearFilter;
+  const s=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false,fog:false,depthTest:o.depthTest!==false}));
+  const sx=o.sx||1.5; s.scale.set(sx,sx*c.height/c.width,1); s.renderOrder=5;
+  s.userData.set=(t,col)=>{ const key=t+'|'+(col||''); if(key===s.userData.k) return; s.userData.k=key; ctx.clearRect(0,0,c.width,c.height);
+    if(t){ ctx.font=o.font||'600 40px Barlow, sans-serif'; const lines=wrapText(ctx,t,c.width-48).slice(0,o.maxLines||1); const lh=o.lh||48;
+      const wMax=Math.max(...lines.map(l=>ctx.measureText(l).width))+40, hTot=lines.length*lh+20;
+      const x=(c.width-wMax)/2, y=c.height-hTot-4;
+      ctx.fillStyle=o.bg||'rgba(10,22,32,.82)'; rrect(ctx,x,y,wMax,hTot,14); ctx.fill();
+      ctx.strokeStyle=o.stroke||'rgba(120,196,226,.5)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle=col||o.fg||'#e4eff3'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      lines.forEach((l,i)=>ctx.fillText(l,c.width/2,y+10+lh*(i+.5))); }
+    tex.needsUpdate=true; };
+  s.userData.set(text); return s;
+}
+
+/* ================= TERRAIN ================= */
+const RX=400; // ruins x offset
+function terrainH(x,z){ if(x>250) return 0; const r=Math.hypot(x,z),k=smooth(36,60,r); if(k===0) return 0;
+  return k*(Math.sin(x*.045)*Math.cos(z*.038)*2.2+Math.sin(x*.013+z*.021)*3.2+1.6); }
+const PATHS=[[0,0,-14,-8],[0,0,14,-8],[0,0,13,8],[0,0,-15,9],[0,0,0,-18],[0,0,-5,9],[4,4,25,28],[6,-4,40,-17],[6,0,52,4],[-8,6,-23,12]];
+function segDist(px,pz,ax,az,bx,bz){const dx=bx-ax,dz=bz-az,t=clamp(((px-ax)*dx+(pz-az)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(px-ax-dx*t,pz-az-dz*t);}
+function inField(x,z){return x>-40&&x<-24&&z>6&&z<22;}
+{
+  const geo=new T.PlaneGeometry(330,330,165,165); geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position,col=[];
+  for(let i=0;i<pos.count;i++){ const x=pos.getX(i),z=pos.getZ(i); pos.setY(i,terrainH(x,z));
+    const n=Math.sin(x*.31)*Math.sin(z*.27)*.5+Math.sin(x*.11+z*.07)*.5;
+    let r=.33+n*.05,g=.5+n*.07,b=.24+n*.03;
+    let pd=99; for(const s of PATHS) pd=Math.min(pd,segDist(x,z,s[0],s[1],s[2],s[3]));
+    const pm=1-smooth(.9,1.9,pd); r=lerp(r,.52,pm); g=lerp(g,.44,pm); b=lerp(b,.31,pm);
+    if(inField(x,z)){ r=lerp(r,.66,.8); g=lerp(g,.58,.8); b=lerp(b,.3,.8); }
+    const rr=Math.hypot(x,z); if(rr>60){ const k=smooth(60,140,rr); r=lerp(r,.27,k); g=lerp(g,.42,k); b=lerp(b,.25,k); }
+    col.push(r,g,b); }
+  geo.setAttribute('color',new T.Float32BufferAttribute(col,3)); geo.computeVertexNormals();
+  const ground=new T.Mesh(geo,new T.MeshLambertMaterial({vertexColors:true})); ground.receiveShadow=true; scene.add(ground);
+}
+
+/* ================= COLLIDERS ================= */
+const BOXES=[],CIRCLES=[];
+function box(cx,cz,w,d){BOXES.push({x0:cx-w/2,x1:cx+w/2,z0:cz-d/2,z1:cz+d/2});}
+function circ(x,z,r){CIRCLES.push({x,z,r});}
+function pushOut(p,rad=.32){
+  for(const b of BOXES){ if(p.x>b.x0-rad&&p.x<b.x1+rad&&p.z>b.z0-rad&&p.z<b.z1+rad){
+    const dl=p.x-(b.x0-rad),dr=(b.x1+rad)-p.x,dn=p.z-(b.z0-rad),df=(b.z1+rad)-p.z,m=Math.min(dl,dr,dn,df);
+    if(m===dl)p.x=b.x0-rad;else if(m===dr)p.x=b.x1+rad;else if(m===dn)p.z=b.z0-rad;else p.z=b.z1+rad; } }
+  for(const c of CIRCLES){ const dx=p.x-c.x,dz=p.z-c.z,d=Math.hypot(dx,dz),m=c.r+rad; if(d<m&&d>1e-4){p.x=c.x+dx/d*m;p.z=c.z+dz/d*m;} }
+}
+
+/* ================= WORLD BUILD ================= */
+const nightMats=[]; // emissive at night
+const winMat=new T.MeshLambertMaterial({color:0x2a2418,emissive:0xffb347,emissiveIntensity:0}); nightMats.push(winMat);
+const lampMat=new T.MeshLambertMaterial({color:0xfff2c0,emissive:0xffc860,emissiveIntensity:0}); nightMats.push(lampMat);
+function roof(w,d,h,color){ const g=new T.ConeGeometry(1,1,4,1); g.rotateY(Math.PI/4); const m=new T.Mesh(g,M(color)); m.scale.set(w*.74,h,d*.74); m.castShadow=true; return m; }
+function house(cx,cz,w,d,h,wall,roofC,doorSide){
+  const g=new T.Group(); g.position.set(cx,0,cz); scene.add(g);
+  mesh(new T.BoxGeometry(w,h,d),M(wall),0,h/2,0,g);
+  mesh(new T.BoxGeometry(w+.3,.25,d+.3),M('#5a4a3a'),0,.12,0,g);
+  const r=roof(w+.8,d+.8,h*.75,roofC); r.position.y=h+h*.375; g.add(r);
+  const dz=doorSide==='+z'?d/2+.02:doorSide==='-z'?-d/2-.02:0, dx=doorSide==='+x'?w/2+.02:doorSide==='-x'?-w/2-.02:0;
+  const door=mesh(new T.BoxGeometry(dx?0.08:1.1,2,dz?0.08:1.1),M('#4a3020'),dx,1,dz,g);
+  const winGeo=new T.BoxGeometry(dx?0.08:.8,.7,dz?0.08:.8);
+  if(dz){ [-w/3,w/3].forEach(x=>mesh(winGeo,winMat,x,h*.6,dz,g)); } else { [-d/3,d/3].forEach(z=>mesh(winGeo,winMat,dx,h*.6,z,g)); }
+  box(cx,cz,w,d); return g;
+}
+function stripeTex(a,b){const c=document.createElement('canvas');c.width=64;c.height=8;const x=c.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?a:b;x.fillRect(i*8,0,8,8);}const t=new T.CanvasTexture(c);return t;}
+
+// Plaza + fountain
+mesh(new T.CircleGeometry(10,48).rotateX(-Math.PI/2),M('#8b8a84'),0,.02,0,scene).castShadow=false;
+mesh(new T.RingGeometry(9.6,10.1,48).rotateX(-Math.PI/2),M('#6c6a63'),0,.03,0,scene).castShadow=false;
+mesh(new T.CylinderGeometry(2.2,2.4,.6,24),M('#9a978d'),0,.3,0,scene);
+const water=mesh(new T.CylinderGeometry(1.95,1.95,.05,24),new T.MeshLambertMaterial({color:0x4aa3c9,emissive:0x0a3a55,transparent:true,opacity:.85}),0,.56,0,scene);
+mesh(new T.CylinderGeometry(.25,.35,1.6,10),M('#9a978d'),0,1.2,0,scene);
+mesh(new T.SphereGeometry(.45,12,8),M('#9a978d'),0,2.05,0,scene);
+circ(0,0,2.4);
+const lamps=[]; for(let i=0;i<6;i++){ const a=i/6*TAU+.3,x=Math.cos(a)*10.8,z=Math.sin(a)*10.8;
+  mesh(new T.CylinderGeometry(.07,.09,2.6,6),M('#2d2a26'),x,1.3,z,scene); const l=mesh(new T.SphereGeometry(.22,10,8),lampMat,x,2.7,z,scene); l.castShadow=false; lamps.push(l); circ(x,z,.2); }
+
+// Bakery (Bruno)
+house(-14,-12,8,6,3.4,'#e6d6b8','#9c4a2c','+z');
+mesh(new T.BoxGeometry(3,1,1),M('#7a5634'),-14,.5,-7.6,scene); box(-14,-7.6,3,1);
+const breadOnCounter=[]; for(let i=0;i<4;i++){ const b=mesh(new T.CapsuleGeometry(.12,.22,4,8),M('#c98a43'),-15+i*.65,1.12,-7.6,scene); b.rotation.z=Math.PI/2; breadOnCounter.push(b); }
+const awn=new T.Mesh(new T.BoxGeometry(3.6,.08,1.8),new T.MeshLambertMaterial({map:stripeTex('#d8c9a6','#a8452c')})); awn.position.set(-14,2.5,-7.9); awn.rotation.x=.25; awn.castShadow=true; scene.add(awn);
+mesh(new T.BoxGeometry(1.1,1.1,1.1),M('#6e4c2e'),-14,.55,-16.2,scene); box(-14,-16.2,1.1,1.1); // storeroom crate
+mesh(new T.BoxGeometry(1.4,.12,1.4),M('#8a7a5a'),-14,1.16,-16.2,scene);
+// Forge (Dorran)
+{ const g=new T.Group(); g.position.set(14,0,-11); scene.add(g);
+  [[-3,-2.5],[3,-2.5],[-3,2.5],[3,2.5]].forEach(([x,z])=>{ mesh(new T.BoxGeometry(.3,3,.3),M('#4b3626'),x,1.5,z,g); circ(14+x,-11+z,.25); });
+  const r=roof(7,6.2,1.4,'#55606a'); r.position.y=3.7; g.add(r);
+  mesh(new T.BoxGeometry(2.4,1.8,1),M('#5a5048'),0,.9,-2,g); box(14,-13,2.4,1);
+  const fire=mesh(new T.BoxGeometry(1,.6,.1),new T.MeshBasicMaterial({color:0xff7a2a}),0,.7,-1.48,g); fire.castShadow=false;
+  mesh(new T.CylinderGeometry(.3,.4,2.6,8),M('#3e3630'),0,2.9,-2,g);
+}
+const anvil=new T.Group(); anvil.position.set(14.6,0,-9.8); scene.add(anvil);
+mesh(new T.BoxGeometry(.5,.55,.4),M('#3b3936'),0,.28,0,anvil); mesh(new T.BoxGeometry(.9,.22,.36),M('#55534f'),0,.66,0,anvil);
+mesh(new T.ConeGeometry(.16,.4,8).rotateZ(-Math.PI/2),M('#55534f'),.62,.66,0,anvil); box(14.6,-9.8,.9,.5);
+const anvilTop=new T.Vector3(14.6,.78,-9.8);
+const forgeLight=new T.PointLight(0xff8a3d,1.4,10,2); forgeLight.position.set(14,1.2,-12.2); scene.add(forgeLight);
+const anvilRing=new T.Mesh(new T.RingGeometry(.12,.2,24).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:0,depthWrite:false})); anvilRing.position.copy(anvilTop).y+=.02; scene.add(anvilRing);
+// Tavern
+house(14,12,9,7,3.8,'#c9b38f','#6a3f2a','-z');
+mesh(new T.BoxGeometry(3,.45,.8),M('#6e4c2e'),14,.45,7.3,scene); box(14,7.3,3,.8);
+// Lía's farmhouse + field
+house(-15,13,7,6,3,'#e9e0c9','#7a5a2a','-z');
+const wheatField=new T.InstancedMesh(new T.CylinderGeometry(.03,.05,1,4),M('#d8b54a'),900); { const d=new T.Object3D(); let i=0; for(let x=-39;x<-24.5;x+=.55) for(let z=6.6;z<21.6;z+=.55){ if(i>=900)break; d.position.set(x+rand(-.12,.12),.5,z+rand(-.12,.12)); d.scale.set(1,rand(.7,1.15),1); d.updateMatrix(); wheatField.setMatrixAt(i++,d.matrix);} wheatField.count=i; } scene.add(wheatField);
+for(let x=-40;x<=-24;x+=2){ mesh(new T.BoxGeometry(.12,.8,.12),M('#6b5134'),x,.4,5.8,scene); mesh(new T.BoxGeometry(.12,.8,.12),M('#6b5134'),x,.4,22.2,scene); }
+mesh(new T.BoxGeometry(16,.1,.08),M('#6b5134'),-32,.6,5.8,scene); mesh(new T.BoxGeometry(16,.1,.08),M('#6b5134'),-32,.6,22.2,scene);
+const sheaves=[]; [[-30,9],[-35,12],[-28,17],[-37,19],[-32,15],[-26,20],[-38,8]].forEach(([x,z])=>{ const g=new T.Group(); g.position.set(x,0,z); mesh(new T.CylinderGeometry(.22,.3,.9,8),M('#e2c35a'),0,.45,0,g); mesh(new T.TorusGeometry(.24,.04,6,12).rotateX(Math.PI/2),M('#8a6a2a'),0,.5,0,g); scene.add(g); sheaves.push({g,t:0}); });
+// Santuario
+{ const g=new T.Group(); g.position.set(0,0,-22); scene.add(g);
+  mesh(new T.CylinderGeometry(4,4.3,.4,24),M('#a7a49a'),0,.2,0,g);
+  for(let i=0;i<6;i++){ const a=i/6*TAU,x=Math.cos(a)*3.3,z=Math.sin(a)*3.3; mesh(new T.CylinderGeometry(.22,.26,3.4,10),M('#d8d4c8'),x,2,z,g); circ(x,-22+z,.3); }
+  mesh(new T.CylinderGeometry(3.8,3.8,.3,24),M('#cfcabc'),0,3.85,0,g);
+  mesh(new T.CylinderGeometry(.4,.55,1,8),M('#a7a49a'),0,.9,0,g); circ(0,-22,.6);
+}
+const sanctCrystal=mesh(new T.OctahedronGeometry(.45),new T.MeshLambertMaterial({color:0x8fe6ff,emissive:0x2aa9d6,emissiveIntensity:.8}),0,1.9,-22,scene);
+const RESPAWN=new T.Vector3(0,0,-17.2);
+// Player stall
+mesh(new T.BoxGeometry(2.6,.9,.9),M('#7a5634'),-5,.45,10,scene); box(-5,10,2.6,.9);
+const stallAwn=new T.Mesh(new T.BoxGeometry(3,.08,1.4),new T.MeshLambertMaterial({map:stripeTex('#2f6e8a','#e9e2d0')})); stallAwn.position.set(-5,2.3,10.2); stallAwn.rotation.x=-.2; scene.add(stallAwn);
+[[-6.2,10.5],[-3.8,10.5]].forEach(([x,z])=>mesh(new T.BoxGeometry(.1,2.3,.1),M('#4b3626'),x,1.15,z,scene));
+const stallSign=makeLabel('Tu puesto',{sx:1.6,font:'600 42px Barlow, sans-serif'}); stallSign.position.set(-5,2.9,10.2); scene.add(stallSign);
+const STALL=[]; // {key,price,mesh}
+// Dorran's house
+house(24,-4,5,5,2.8,'#b9b2a6','#4c5560','-x');
+// Apple tree
+const appleTree=new T.Group(); appleTree.position.set(6,0,-14); scene.add(appleTree);
+mesh(new T.CylinderGeometry(.22,.32,2.4,8),M('#5b3f28'),0,1.2,0,appleTree); mesh(new T.SphereGeometry(1.7,12,10),M('#3f7a3a'),0,3.2,0,appleTree); circ(6,-14,.5);
+const apples=[]; for(let i=0;i<5;i++){ const a=i/5*TAU; const m=mesh(new T.SphereGeometry(.13,8,6),M('#c8332b'),Math.cos(a)*1.4,2.6+Math.sin(i*2)*.4,Math.sin(a)*1.4,appleTree); apples.push({m,t:0}); }
+// Ore rocks
+const ores=[]; [[40,-18],[44,-12],[37,-24]].forEach(([x,z],i)=>{ const y=terrainH(x,z); const g=new T.Group(); g.position.set(x,y,z); scene.add(g);
+  mesh(new T.DodecahedronGeometry(1.3,0),M('#6e6a66'),0,.8,0,g); const specks=new T.Group(); g.add(specks);
+  for(let k=0;k<6;k++){ const m=mesh(new T.BoxGeometry(.18,.18,.18),new T.MeshLambertMaterial({color:0xd27a3a,emissive:0x5a2a10}),Math.cos(k)*1.05,.6+Math.sin(k*3)*.5,Math.sin(k)*1.05,specks); m.rotation.set(k,k*2,0); }
+  circ(x,z,1.35); ores.push({g,specks,id:'ore'+i}); });
+// Portal
+const PORTAL=new T.Vector3(27,terrainH(27,30),30);
+const portalU={t:{value:0},on:{value:0}};
+{ const g=new T.Group(); g.position.copy(PORTAL); scene.add(g);
+  for(let i=0;i<6;i++){ const a=i/6*TAU,x=Math.cos(a)*4.4,z=Math.sin(a)*4.4; const s=mesh(new T.BoxGeometry(.7,2.6+Math.sin(i)*.5,.5),M('#6f6b75'),x,1.3,z,g); s.rotation.y=-a; circ(PORTAL.x+x,PORTAL.z+z,.45); }
+  const ring=mesh(new T.TorusGeometry(1.7,.16,10,40),new T.MeshLambertMaterial({color:0x8a86a0,emissive:0x3a2a7a,emissiveIntensity:.6}),0,2,0,g); ring.rotation.y=Math.PI/4;
+  const disc=new T.Mesh(new T.CircleGeometry(1.6,40),new T.ShaderMaterial({uniforms:portalU,transparent:true,side:T.DoubleSide,depthWrite:false,
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'uniform float t;uniform float on;varying vec2 vUv;void main(){vec2 p=vUv-.5;float r=length(p)*2.;float a=atan(p.y,p.x);float sw=sin(a*5.+r*12.-t*3.)*.5+.5;vec3 c=mix(vec3(.25,.12,.6),vec3(.45,.95,1.),sw*(1.-r*.7));float al=smoothstep(1.,.8,r)*on*(.55+.45*sw);gl_FragColor=vec4(c,al);}'}));
+  disc.position.y=2; disc.rotation.y=Math.PI/4; g.add(disc);
+}
+// Trees (instanced)
+{ const pts=[]; let guard=0; while(pts.length<170&&guard++<4000){ const a=rand(0,TAU),r=rand(30,150),x=Math.cos(a)*r,z=Math.sin(a)*r;
+    if(inField(x,z)||Math.hypot(x-PORTAL.x,z-PORTAL.z)<9||Math.hypot(x-52,z-4)<15||Math.hypot(x-40,z-18)<8||Math.hypot(x-40,z+18)<9||(x>-20&&x<30&&z>-28&&z<20&&r<34)) continue; pts.push([x,z]); }
+  const trunk=new T.InstancedMesh(new T.CylinderGeometry(.18,.26,2.2,6),M('#5b3f28'),pts.length), cone=new T.InstancedMesh(new T.ConeGeometry(1.5,3.6,7),M('#2f5a34'),pts.length);
+  const d=new T.Object3D(); pts.forEach(([x,z],i)=>{ const y=terrainH(x,z),s=rand(.8,1.4); d.position.set(x,y+1.1*s,z); d.scale.set(s,s,s); d.rotation.set(0,rand(0,TAU),0); d.updateMatrix(); trunk.setMatrixAt(i,d.matrix); d.position.y=y+(2.2+1.6)*s; d.updateMatrix(); cone.setMatrixAt(i,d.matrix); if(Math.hypot(x,z)<90) circ(x,z,.45*s); });
+  trunk.castShadow=cone.castShadow=true; scene.add(trunk); scene.add(cone); }
+// Ruins (portal destination)
+const RUINS=new T.Vector3(RX,0,0), RUINS_PORTAL=new T.Vector3(RX,0,14);
+const ruinsU={t:{value:0},on:{value:1}};
+{ const g=new T.Group(); g.position.copy(RUINS); scene.add(g);
+  const gr=mesh(new T.CircleGeometry(48,48).rotateX(-Math.PI/2),M('#3c4658'),0,0,0,g); gr.castShadow=false;
+  for(let i=0;i<12;i++){ const a=i/12*TAU,r=16+Math.sin(i*3)*3,h=rand(1.2,5); const c=mesh(new T.CylinderGeometry(.6,.7,h,10),M('#8c93a6'),Math.cos(a)*r,h/2,Math.sin(a)*r,g); circ(RX+Math.cos(a)*r,Math.sin(a)*r,.75); }
+  for(let i=0;i<9;i++){ const a=rand(0,TAU),r=rand(4,13); const c=mesh(new T.OctahedronGeometry(rand(.4,.9)),new T.MeshLambertMaterial({color:0x9fd8ff,emissive:0x3a7ad6,emissiveIntensity:.9}),Math.cos(a)*r,.8,Math.sin(a)*r,g); c.rotation.set(rand(0,1),rand(0,3),0); }
+  const ring=mesh(new T.TorusGeometry(1.7,.16,10,40),new T.MeshLambertMaterial({color:0x8a86a0,emissive:0x3a2a7a,emissiveIntensity:.8}),0,2,14,g);
+  const disc=new T.Mesh(new T.CircleGeometry(1.6,40),new T.ShaderMaterial({uniforms:ruinsU,transparent:true,side:T.DoubleSide,depthWrite:false,vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'uniform float t;uniform float on;varying vec2 vUv;void main(){vec2 p=vUv-.5;float r=length(p)*2.;float a=atan(p.y,p.x);float sw=sin(a*5.+r*12.-t*3.)*.5+.5;gl_FragColor=vec4(mix(vec3(.25,.12,.6),vec3(.45,.95,1.),sw),smoothstep(1.,.8,r)*(.55+.45*sw));}'}));
+  disc.position.set(0,2,14); g.add(disc);
+  const pl=new T.PointLight(0x7ab8ff,1.2,30,2); pl.position.set(0,4,0); g.add(pl);
+}
+const moonCrystal=mesh(new T.OctahedronGeometry(.5),new T.MeshLambertMaterial({color:0xe6f4ff,emissive:0xa0d0ff,emissiveIntensity:1}),RX+6,1.4,-8,scene);
+
+/* ================= HUMANOIDS ================= */
+function makeHumanoid(o){
+  const g=new T.Group(), b=o.build||1, s=(o.height||1.75)/1.85;
+  const mSkin=M(o.skin), mOut=M(o.outfit), mPants=M(o.pants||'#3b3430'), mHair=M(o.hair), mBoot=M('#2b2018');
+  const mk=(geo,mat,x,y,z,p)=>mesh(geo,mat,x,y,z,p);
+  const legL=new T.Group(), legR=new T.Group(); legL.position.set(-.1*b,.92,0); legR.position.set(.1*b,.92,0);
+  [legL,legR].forEach(l=>{ mk(new T.CapsuleGeometry(.075*b,.6,4,8),mPants,0,-.38,0,l); mk(new T.BoxGeometry(.15*b,.12,.26),mBoot,0,-.84,.04,l); g.add(l); });
+  const torso=mk(new T.CapsuleGeometry(.2*b,.42,4,10),mOut,0,1.24,0,g); torso.scale.z=.72;
+  mk(new T.CylinderGeometry(.205*b,.205*b,.09,12),M('#3a2a1e'),0,.98,0,g);
+  if(o.apron) mk(new T.BoxGeometry(.34*b,.55,.02),M('#f2ede2'),0,1.05,.16*b,g);
+  const armL=new T.Group(), armR=new T.Group(); armL.position.set(-.27*b,1.46,0); armR.position.set(.27*b,1.46,0);
+  [armL,armR].forEach(a=>{ mk(new T.CapsuleGeometry(.058*b,.46,4,8),mOut,0,-.27,0,a); mk(new T.SphereGeometry(.065,8,6),mSkin,0,-.6,0,a); g.add(a); });
+  mk(new T.CylinderGeometry(.06,.07,.1,8),mSkin,0,1.6,0,g);
+  const head=new T.Group(); head.position.set(0,1.75,0); g.add(head);
+  const sk=mk(new T.SphereGeometry(.135,14,12),mSkin,0,0,0,head); sk.scale.y=1.1;
+  const eyeM=M('#15100c'); mk(new T.SphereGeometry(.018,6,6),eyeM,-.048,.02,.122,head); mk(new T.SphereGeometry(.018,6,6),eyeM,.048,.02,.122,head);
+  const mouth=mk(new T.BoxGeometry(.06,.012,.01),M('#5a2a24'),0,-.055,.128,head);
+  const hair=new T.Group(); head.add(hair); const hs=o.hairStyle||'corto';
+  if(hs!=='rapado'){ const cap=mk(new T.SphereGeometry(.145,14,10,0,TAU,0,Math.PI*.55),mHair,0,.015,-.005,hair); cap.scale.y=1.1; }
+  else { const cap=mk(new T.SphereGeometry(.138,14,10,0,TAU,0,Math.PI*.45),M(o.hair),0,.01,0,hair); cap.material=new T.MeshLambertMaterial({color:new T.Color(o.hair).lerp(new T.Color(o.skin),.55)}); }
+  if(hs==='largo') mk(new T.BoxGeometry(.27,.32,.08),mHair,0,-.14,-.1,hair);
+  if(hs==='coleta'){ mk(new T.SphereGeometry(.06,8,6),mHair,0,-.02,-.16,hair); mk(new T.CapsuleGeometry(.04,.16,4,6),mHair,0,-.15,-.18,hair); }
+  if(o.beard) mk(new T.BoxGeometry(.18,.1,.06),mHair,0,-.09,.1,head);
+  let cape=null; if(o.cape){ cape=new T.Group(); cape.position.set(0,1.5,-.15*b); mk(new T.BoxGeometry(.5*b,.95,.03),M(o.capeColor||'#2a3a4a'),0,-.48,0,cape); g.add(cape); }
+  g.scale.setScalar(s);
+  return {g,legL,legR,armL,armR,torso,head,mouth,hair,cape,phase:Math.random()*6,gest:null,gestT:0,talk:false,lookYaw:0};
+}
+function animHumanoid(h,dt,speed,t){
+  h.phase+=dt*speed*3.4;
+  const amp=speed>.1?Math.min(.7,speed*.38):0;
+  const sw=Math.sin(h.phase)*amp;
+  h.legL.rotation.x=lerp(h.legL.rotation.x,sw,.3); h.legR.rotation.x=lerp(h.legR.rotation.x,-sw,.3);
+  let aL=-sw*.8,aR=sw*.8,zL=.06,zR=-.06;
+  if(h.gestT>0){ h.gestT-=dt;
+    if(h.gest==='saludar'){ aR=-2.7; zR=-.3+Math.sin(t*11)*.35; }
+    else if(h.gest==='pensar'){ aR=-2.2; zR=.5; }
+    else if(h.gest==='reir'){ h.torso.position.y=1.24+Math.abs(Math.sin(t*14))*.03; aL=-.3; aR=-.3; }
+    else if(h.gest==='enojado'){ zL=.9; zR=-.9; aL=-.5; aR=-.5; }
+    else if(h.gest==='martillar'){ aR=-1.6+Math.abs(Math.sin(t*5))*1.4; }
+    else if(h.gest==='hablar'){ aR=-.6+Math.sin(t*4)*.3; zR=-.2; }
+  } else h.torso.position.y=1.24;
+  h.armL.rotation.x=lerp(h.armL.rotation.x,aL,.25); h.armR.rotation.x=lerp(h.armR.rotation.x,aR,.25);
+  h.armL.rotation.z=lerp(h.armL.rotation.z,zL,.25); h.armR.rotation.z=lerp(h.armR.rotation.z,zR,.25);
+  h.torso.scale.y=1+Math.sin(t*2+h.phase*.1)*.015;
+  h.mouth.scale.y=h.talk?1+Math.abs(Math.sin(t*17+h.phase))*4:1;
+  h.head.rotation.y=lerp(h.head.rotation.y,clamp(h.lookYaw,-1,1),.12);
+  if(h.cape) h.cape.rotation.x=lerp(h.cape.rotation.x,.08+speed*.12,.1);
+}
+
+/* ================= PARTICLES ================= */
+const PARTS=[]; for(let i=0;i<180;i++){ const s=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending,fog:false})); s.visible=false; scene.add(s); PARTS.push({s,v:V3(),life:0,max:1,size:.3}); }
+let partI=0;
+function burst(pos,color,n=14,spd=2.5,life=.8,size=.35,up=0){ for(let i=0;i<n;i++){ const p=PARTS[partI++%PARTS.length]; p.s.visible=true; p.s.position.copy(pos); p.s.material.color.setHex(color); p.v.set(rand(-1,1),rand(-1,1)+up,rand(-1,1)).normalize().multiplyScalar(spd*rand(.3,1)); p.life=p.max=life*rand(.6,1); p.size=size; } }
+function updParts(dt){ for(const p of PARTS){ if(p.life<=0) continue; p.life-=dt; if(p.life<=0){p.s.visible=false;continue;} p.s.position.addScaledVector(p.v,dt); p.v.multiplyScalar(.96); const k=p.life/p.max; p.s.material.opacity=k; p.s.scale.setScalar(p.size*(.4+k*.6)); } }
+
+/* ================= ITEM MESHES ================= */
+function itemMesh(k){
+  const g=new T.Group();
+  if(k==='pan'){ const m=mesh(new T.CapsuleGeometry(.05,.1,4,8),M('#c98a43'),0,0,0,g); m.rotation.z=Math.PI/2; }
+  else if(k==='manzana'){ mesh(new T.SphereGeometry(.045,10,8),M('#c8332b'),0,0,0,g); mesh(new T.CylinderGeometry(.004,.004,.03,4),M('#4b3626'),0,.05,0,g); }
+  else if(k==='trigo'){ mesh(new T.CylinderGeometry(.05,.07,.22,8),M('#e2c35a'),0,0,0,g); }
+  else if(k==='hierro'){ mesh(new T.DodecahedronGeometry(.06),M('#8a6e5a'),0,0,0,g); }
+  else if(k==='gel'){ mesh(new T.SphereGeometry(.05,10,8),new T.MeshLambertMaterial({color:0x8be08a,transparent:true,opacity:.8}),0,0,0,g); }
+  else if(k==='cristal'){ mesh(new T.OctahedronGeometry(.06),new T.MeshLambertMaterial({color:0xe6f4ff,emissive:0x80b8ff}),0,0,0,g); }
+  else if(k.startsWith('espada')){ const gr=+k.split(':')[1]; mesh(new T.BoxGeometry(.04,.6,.012),new T.MeshLambertMaterial({color:0xd8dde2,emissive:new T.Color(GRADE_COL[gr]).multiplyScalar(gr>=2?.35:0)}),0,.36,0,g); mesh(new T.BoxGeometry(.16,.025,.04),M('#6a5232'),0,.05,0,g); mesh(new T.CylinderGeometry(.015,.015,.12,6),M('#3a2a1e'),0,-.02,0,g); }
+  else mesh(new T.BoxGeometry(.08,.08,.08),M('#888'),0,0,0,g);
+  g.traverse(o=>{o.castShadow=false;}); return g;
+}
+
+/* ================= FIRST-PERSON ARMS (desktop) ================= */
+const FPA={g:new T.Group(),L:null,R:null,castT:0,hitT:0,bob:0,orb:null};
+camera.add(FPA.g); FPA.g.visible=false;
+function fpHand(side){ const g=new T.Group(), sk=M(P.look.skin);
+  mesh(new T.BoxGeometry(.085,.03,.1),sk,0,0,0,g);
+  for(let i=0;i<4;i++){ const f=mesh(new T.BoxGeometry(.019,.02,.07),sk,-.03+i*.02,-.004,-.08,g); f.rotation.x=.25; }
+  const th=mesh(new T.BoxGeometry(.02,.02,.055),sk,side*-.052,-.004,-.012,g); th.rotation.y=side*.6;
+  return g; }
+function buildFPArms(){ FPA.g.clear(); const mk=side=>{ const a=new T.Group();
+    const sl=mesh(new T.CapsuleGeometry(.048,.36,4,10),M(P.look.outfit)); sl.rotation.x=Math.PI/2; sl.position.z=.14; a.add(sl);
+    const cuff=mesh(new T.CylinderGeometry(.056,.056,.045,12),M(new T.Color(P.look.outfit).multiplyScalar(.55).getStyle())); cuff.rotation.x=Math.PI/2; cuff.position.z=-.05; a.add(cuff);
+    const h=fpHand(side); h.position.set(0,0,-.11); h.rotation.z=-side*1.15; h.scale.setScalar(.85); a.add(h);
+    a.traverse(o=>{o.castShadow=false;o.receiveShadow=false;}); a.position.set(side*.24,-.3,-.38); a.rotation.y=-side*.12; FPA.g.add(a); return a; };
+  FPA.L=mk(-1); FPA.R=mk(1);
+  FPA.orb=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,blending:T.AdditiveBlending,depthWrite:false,fog:false})); FPA.orb.scale.set(.12,.12,1); FPA.orb.position.set(0,.04,-.2); FPA.orb.visible=false; FPA.L.add(FPA.orb); }
+function updFPArms(dt){
+  FPA.g.visible=started&&!XR.on&&P.alive; if(!FPA.g.visible) return;
+  FPA.bob+=dt*(P.moveSpeed||0)*2.1; const bx=Math.sin(FPA.bob)*.012, by=-Math.abs(Math.cos(FPA.bob))*.012;
+  let rx=.24,ry=-.3,rz=-.38,lx=-.24,ly=-.3,lz=-.38, rRot=0;
+  if(FPA.castT>0){ FPA.castT-=dt; const k=Math.sin(clamp(1-FPA.castT/.35,0,1)*Math.PI); rz-=.18*k; ry+=.1*k; rx-=.06*k; }
+  if(P.shieldT>0){ ly=-.18; lz=-.42; ry=Math.min(ry,-.18); }
+  if(voiceOn){ ly=-.13; lz=-.44; lx=-.16; }
+  FPA.orb.visible=voiceOn; if(voiceOn) FPA.orb.material.color.setHex(SPELLS[P.spell].color);
+  if(FORGE.active){ ry=-.14; rz=-.42; if(FPA.hitT>0){ FPA.hitT-=dt; const k=Math.sin(clamp(1-FPA.hitT/.3,0,1)*Math.PI); ry-=.14*k; rRot=-.9*k; } }
+  if(EAT.held&&EAT.held.parent===camera){ const hp=EAT.held.position; FPA.R.position.set(hp.x-.01,hp.y-.04,hp.z+.14); }
+  else FPA.R.position.set(rx+bx,ry+by,rz);
+  FPA.R.rotation.x=rRot; FPA.L.position.set(lx+bx,ly+by,lz);
+}
+
+/* ================= PLAYER AVATAR ================= */
+let avatar=null;
+function buildAvatar(){ buildFPArms();
+  if(avatar){ scene.remove(avatar.g); }
+  avatar=makeHumanoid({skin:P.look.skin,hair:P.look.hair,hairStyle:P.look.hairStyle,outfit:P.look.outfit,pants:new T.Color(P.look.outfit).multiplyScalar(.45).getStyle(),height:P.look.height,build:P.look.build,cape:P.look.cape,capeColor:new T.Color(P.look.outfit).multiplyScalar(.6).getStyle()});
+  scene.add(avatar.g);
+}
+
+/* ================= NPCs ================= */
+const PLACES={
+  bakery:{path:[[-17.4,-6.3],[-16.8,-8.55],[-14,-8.55]]},
+  bakeryHome:{path:[[-19.2,-7],[-19.2,-12]],hide:true},
+  tavernB:{path:[[12.6,6.4]]}, tavernD:{path:[[15.9,6.4]]},
+  field:{path:[[-22.6,8.6],[-27.5,13.5]]}, field2:{path:[[-22.6,8.6],[-33,18]]},
+  fountainL:{path:[[2.8,1.6]]}, fountainL2:{path:[[-2.7,2.2]]},
+  liaHome:{path:[[-15,9.3]],hide:true},
+  forge:{path:[[11.2,-8.2],[12.5,-10.3]]},
+  dorranHome:{path:[[20.8,-4]],hide:true},
+  plazaD:{path:[[3.3,-2.6]]},
+  sanct:{path:[[2.8,-17.3]]}, portalS:{path:[[23.6,26.2]]}, plazaS:{path:[[-3.1,-2.7]]},
+};
+const NPC_DEFS=[
+  {id:'bruno',name:'Bruno',role:'Panadero',persona:'gruñón, orgulloso de su pan hecho a mano, generoso en secreto, desconfía un poco de los Viajeros',style:'frases cortas, se queja del precio de la harina, exclama "¡Por mis hornos!"',
+   look:{skin:'#c98e66',hair:'#3a2a1e',hairStyle:'rapado',outfit:'#e9e2d0',pants:'#5b4636',height:1.74,build:1.28,apron:true,beard:true},voice:{pitch:.7,rate:.95,idx:0},
+   sched:[[6,'bakery'],[19,'tavernB'],[22,'bakeryHome']],
+   lines:{greet:['¿Pan? Recién sacado del horno. Bueno, de hace una hora.','Hmph. Otro Viajero. ¿Vienes a comprar o a mirar?'],work:['Si me traes trigo del sembrado de Lía, te pago bien. ¡Por mis hornos, que no me queda harina!'],none:['No tengo nada para ti ahora. Vuelve cuando el horno ruja.'],bye:['Que no se te enfríe el pan.','Hmph. Hasta luego.'],thanks:['Bah… gracias. Ese trigo huele bien.'],generic:['La harina sube y sube. Los limos tienen la culpa.','Mi pan no se hace con magia. Se hace con manos.','¿Has probado comida de menú? No sabe a nada. La mía sí.']}},
+  {id:'lia',name:'Lía',role:'Granjera',persona:'optimista, curiosa, chismosa, cuida sus cultivos como si fueran hijos',style:'habla rápido, usa diminutivos, se entusiasma',
+   look:{skin:'#e3b48c',hair:'#8a4a1f',hairStyle:'coleta',outfit:'#6f8f3a',pants:'#4a3a28',height:1.62,build:.92},voice:{pitch:1.35,rate:1.12,idx:1},
+   sched:[[6,'field'],[11,'fountainL'],[13,'field2'],[18,'fountainL2'],[21,'liaHome']],
+   lines:{greet:['¡Holita! ¿Viste qué doradito está el trigo hoy?','¡Ay, un Viajero! ¿Me cuentas cosas de afuera?'],work:['¡Los limos se me comen el trigo! ¿Me ayudas a espantarlos?'],none:['Por ahora todo tranquilo en el sembrado, gracias.'],bye:['¡Chaíto! Pasa cuando quieras.'],thanks:['¡Gracias, gracias! Mis matitas están a salvo.'],generic:['Dicen que en luna llena el portal se queda abierto toda la noche.','Bruno parece gruñón, pero me regala pan cuando llueve.','¿Sabías que Dorran nunca habla de su maestro?']}},
+  {id:'dorran',name:'Maese Dorran',role:'Herrero',persona:'perfeccionista, seco, respeta solo el trabajo bien hecho, guarda un secreto sobre su viejo maestro y las Ruinas Lunares',style:'formal, pocas palabras, metáforas de metal y fuego',
+   look:{skin:'#a8714c',hair:'#d8d4cc',hairStyle:'corto',outfit:'#4a4038',pants:'#2e2722',height:1.82,build:1.22,apron:true,beard:true},voice:{pitch:.55,rate:.86,idx:2},
+   sched:[[7,'forge'],[18,'tavernD'],[20,'plazaD'],[21,'dorranHome']],
+   lines:{greet:['El yunque está libre. Si sabes usarlo.','Hmm. Tus manos no tienen callos todavía.'],work:['Me falta hierro. Tres trozos de las rocas del este.'],none:['No necesito nada. Necesito que forjes mejor.'],bye:['Que el temple te acompañe.'],thanks:['Buen metal. Aceptable.'],generic:['El acero no miente. La gente sí.','Golpea cuando el metal te lo pida, no antes.','Mi maestro forjaba con luz de luna. Ya no importa.']}},
+  {id:'sira',name:'Sira',role:'Guardiana del portal',persona:'serena, misteriosa, justa, estudia la luna y vigila el portal y la verdad de los rumores',style:'habla con calma y metáforas lunares',
+   look:{skin:'#7a5440',hair:'#141018',hairStyle:'largo',outfit:'#3b3f6e',pants:'#26243a',height:1.7,build:.95,cape:true,capeColor:'#20224a'},voice:{pitch:1.08,rate:.9,idx:3},
+   sched:[[6,'plazaS'],[8,'sanct'],[18,'portalS']],
+   lines:{greet:['La luna te ve, Viajero. Yo también.','Bienvenido. El portal duerme de día.'],work:['Un rumor corre por el pueblo. Ayúdame a ver si es cierto.'],none:['Nada que investigar. Por ahora la luna está tranquila.'],bye:['Que tu camino tenga luz.'],thanks:['La verdad pesa menos que la duda. Gracias.'],generic:['El portal abre a las siete de la tarde. En luna llena, hasta el alba.','Si mueres, renacerás en el Santuario. Tu recuerdo quedará donde caíste.','Las Ruinas Lunares guardan cristales que solo brillan de noche.']}},
+];
+const NPCS=[];
+function hourNow(){ return Math.floor(W.min/60)%24; }
+function schedPlace(n){ const h=hourNow(); let cur=n.sched[n.sched.length-1][1]; for(const [s,p] of n.sched) if(h>=s) cur=p; return cur; }
+NPC_DEFS.forEach(d=>{
+  const h=makeHumanoid(d.look); scene.add(h.g);
+  const n=Object.assign({},d,{h,pos:V3(),path:[],place:null,hidden:false,busy:null,aff:0,memory:[],rumors:[],convo:[],visitT:rand(20,45),visiting:null,visitTimer:0,wanderT:2,lookAt:null,speed:1.45,moving:0});
+  n.label=makeLabel(d.name,{sx:1.3,font:'600 40px Barlow, sans-serif'}); scene.add(n.label);
+  n.marker=makeLabel('',{sx:.55,w:128,h:128,font:'700 80px Barlow, sans-serif',bg:'rgba(10,22,32,.85)',stroke:'rgba(233,180,76,.8)'}); scene.add(n.marker);
+  n.bubble=makeLabel('',{sx:2.6,w:768,h:256,font:'500 34px Barlow, sans-serif',maxLines:4,lh:42}); scene.add(n.bubble); n.bubbleT=0;
+  const pl=PLACES[schedPlace(n)]; const last=pl.path[pl.path.length-1]; n.pos.set(last[0],0,last[1]); n.place=schedPlace(n);
+  if(pl.hide){ n.hidden=true; }
+  NPCS.push(n);
+});
+const npcById=id=>NPCS.find(n=>n.id===id);
+function setPlace(n,key){
+  const exit=n.place&&PLACES[n.place]?PLACES[n.place].path.slice(0,-1).reverse():[];
+  if(n.hidden){ n.hidden=false; const p=PLACES[n.place]?.path; if(p){ const l=p[p.length-1]; n.pos.set(l[0],0,l[1]); } }
+  n.path=[...exit,...PLACES[key].path].map(p=>p.slice()); n.place=key;
+}
+function remember(n,text){ n.memory.push(text); if(n.memory.length>10) n.memory.shift(); }
+function showBubble(n,text,dur=6){ n.bubble.userData.set(text); n.bubbleT=dur; }
+function npcSay(n,text,{gest='hablar',vol=1,bubble=true}={}){
+  n.h.gest=gest; n.h.gestT=Math.min(7,1.5+text.length*.05);
+  if(bubble) showBubble(n,text,Math.min(9,2.5+text.length*.06));
+  speak(text,n.voice,()=>{n.h.talk=true;},()=>{n.h.talk=false;},vol);
+}
+function updNPC(n,dt,t){
+  const want=n.visiting?null:schedPlace(n);
+  if(want&&want!==n.place) setPlace(n,want);
+  if(n.hidden){ n.h.g.visible=false; n.label.visible=n.marker.visible=n.bubble.visible=false; return; }
+  n.h.g.visible=true; n.label.visible=true;
+  let speed=0;
+  if(n.busy){ if(n.lookAt){ const yaw=Math.atan2(n.lookAt.x-n.pos.x,n.lookAt.z-n.pos.z); n.h.g.rotation.y=lerpAngle(n.h.g.rotation.y,yaw,.15); } }
+  else {
+    if(n.visiting){ n.visitTimer-=dt; const o=n.visiting; tmpA.subVectors(n.pos,o.pos).setY(0); const d=tmpA.length()||1;
+      if(n.exitQ&&n.exitQ.length) n.path=n.exitQ; else n.path=[[o.pos.x+tmpA.x/d*1.6,o.pos.z+tmpA.z/d*1.6]];
+      if(n.visitTimer<=0||o.hidden){ endVisit(n); } }
+    if(n.path.length){ const [tx,tz]=n.path[0]; const dx=tx-n.pos.x,dz=tz-n.pos.z,d=Math.hypot(dx,dz);
+      if(d<.2){ n.path.shift(); if(!n.path.length&&PLACES[n.place]?.hide&&!n.visiting){ n.hidden=true; } }
+      else { const st=Math.min(d,n.speed*dt); n.pos.x+=dx/d*st; n.pos.z+=dz/d*st; speed=n.speed; n.h.g.rotation.y=lerpAngle(n.h.g.rotation.y,Math.atan2(dx,dz),.18); } }
+    else { n.wanderT-=dt; if(n.wanderT<=0){ n.wanderT=rand(4,9); if(n.place==='forge'&&Math.random()<.7){ n.h.gest='martillar'; n.h.gestT=3.5; } } }
+    n.visitT-=dt;
+    if(n.visitT<=0){ n.visitT=rand(55,110); const can=!n.path.length&&!PLACES[n.place]?.hide; const others=NPCS.filter(o=>o!==n&&!o.hidden&&!o.busy&&!o.visiting&&o.pos.distanceTo(n.pos)<45);
+      if(can&&others.length&&Math.random()<.65){ const o=pick(others); n.visiting=o; n.visitTimer=30; n.path=[]; n.exitQ=n.place&&PLACES[n.place]?PLACES[n.place].path.slice(0,-1).reverse().map(p=>p.slice()):[]; n.place=null; } }
+  }
+  pushOut(n.pos,.3); n.pos.y=terrainH(n.pos.x,n.pos.z); n.h.g.position.copy(n.pos);
+  // look at player when near
+  const dp=n.pos.distanceTo(P.pos); if(dp<5&&!n.busy){ const yaw=Math.atan2(P.pos.x-n.pos.x,P.pos.z-n.pos.z)-n.h.g.rotation.y; n.h.lookYaw=wrapAngle(yaw); } else if(!n.busy) n.h.lookYaw=0; else n.h.lookYaw=0;
+  animHumanoid(n.h,dt,speed,t);
+  const top=n.pos.y+n.look.height*1.07;
+  n.label.position.set(n.pos.x,top+.25,n.pos.z); n.label.visible=dp<22;
+  n.marker.position.set(n.pos.x,top+.72,n.pos.z);
+  n.bubble.position.set(n.pos.x,top+1.25,n.pos.z);
+  if(n.bubbleT>0){ n.bubbleT-=dt; n.bubble.visible=dp<26; if(n.bubbleT<=0) n.bubble.userData.set(''); } else n.bubble.visible=false;
+}
+function endVisit(n){ n.visiting=null; n.exitQ=null; n.place=null; setPlace(n,schedPlace(n)); }
+const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const lerpAngle=(a,b,t)=>a+wrapAngle(b-a)*t;
+
+/* NPC ↔ NPC conversations → rumors → emergent quests */
+const pairCD={};
+function rumorFor(a,b){
+  const pool=[];
+  if(W.breadPrice>=5&&!W.flags.investigated) pool.push({w:3,a:`¿Viste el pan a ${W.breadPrice} monedas? Dicen que Bruno acapara harina.`,b:pick(['¿Bruno? No sé… habrá que ver.','Eso hay que comprobarlo.']),tag:'acaparamiento'});
+  if(slimesNearField()>=3) pool.push({w:2,a:`Los limos se están comiendo el trigo de Lía. Ya van ${slimesNearField()}.`,b:'Alguien tendría que espantarlos.',tag:'limos'});
+  if(P.bestGrade>=2) pool.push({w:2,a:`${P.name} forjó una espada ${GRADES[P.bestGrade].toLowerCase()}. Dorran dice que fue suerte.`,b:'Dorran nunca dice que algo está bien.',tag:'forja'});
+  const fav=NPCS.find(n=>n.aff>=20); if(fav) pool.push({w:2,a:`${P.name} ayudó a ${fav.name}. Parece de fiar.`,b:'Me alegra oír eso.',tag:'fama'});
+  if(P.kills>=5) pool.push({w:1,a:`El Viajero lleva ${P.kills} limos. El campo respira.`,b:'Ya era hora.',tag:'caza'});
+  pool.push({w:1,a:`Esta noche la luna está ${moonName()}. ${portalOpenAt()} `,b:'Sira lo sabrá mejor.',tag:'luna'});
+  pool.push({w:1,a:pick(['El trigo está caro este año.','¿Oíste ruidos en las Ruinas?','Bruno quemó una hornada esta mañana.']),b:pick(['No me digas.','Ajá.','Vaya.']),tag:'charla'});
+  let tot=pool.reduce((s,p)=>s+p.w,0), r=Math.random()*tot; for(const p of pool){ r-=p.w; if(r<=0) return p; } return pool[0];
+}
+function npcChat(a,b,t){
+  const key=[a.id,b.id].sort().join('+'); if((pairCD[key]||0)>t) return; pairCD[key]=t+90;
+  [a,b].forEach(n=>{ n.busy='chat'; n.path=[]; }); a.lookAt=b.pos; b.lookAt=a.pos;
+  const r=rumorFor(a,b); const near=a.pos.distanceTo(P.pos)<12;
+  const text=`${a.name} a ${b.name}: ${r.a}`;
+  a.rumors.push(r.a); b.rumors.push(r.a); if(a.rumors.length>6)a.rumors.shift(); if(b.rumors.length>6)b.rumors.shift();
+  W.rumorLog.unshift({t:timeStr(),text,day:W.day}); if(W.rumorLog.length>25) W.rumorLog.pop();
+  if(r.tag==='acaparamiento'&&!W.flags.rumorHoard){ W.flags.rumorHoard=true; W.hoarding=Math.random()<.5; toast('Nuevo rumor en el pueblo: Bruno acapara harina. Sira querrá investigarlo.'); }
+  if(r.tag==='fama'){ b.aff=clamp(b.aff+2,-100,100); }
+  showBubble(a,r.a,6); a.h.gest='hablar'; a.h.gestT=5;
+  setTimeout(()=>{ showBubble(b,r.b,4); b.h.gest=pick(['reir','pensar','hablar']); b.h.gestT=3; if(near) speak(r.b,b.voice,()=>b.h.talk=true,()=>b.h.talk=false,.7); },3200);
+  if(near) speak(r.a,a.voice,()=>a.h.talk=true,()=>a.h.talk=false,.7);
+  setTimeout(()=>{ [a,b].forEach(n=>{ if(n.busy==='chat'){ n.busy=null; n.lookAt=null; } if(n.visiting) endVisit(n); }); },7600);
+}
+
+/* ================= QUESTS ================= */
+const QT={
+  trigo:{giver:'bruno',title:'Trigo para el horno',desc:'Recoge 4 gavillas de trigo en el sembrado de Lía y llévaselas a Bruno.',type:'item',item:'trigo',need:4,reward:{gold:20,aff:8,xp:30},avail:()=>W.wheat<35},
+  limos:{giver:'lia',title:'Limos en el sembrado',desc:'Elimina 4 limos (los del sembrado o del este) y vuelve con Lía.',type:'kill',need:4,reward:{gold:18,aff:10,xp:35},avail:()=>true},
+  hierro:{giver:'dorran',title:'Hierro para la forja',desc:'Pica 3 trozos de mineral en las rocas del este y llévaselos a Dorran.',type:'item',item:'hierro',need:3,reward:{gold:15,aff:6,xp:30},avail:()=>W.iron<4},
+  investigar:{giver:'sira',title:'¿Acapara Bruno?',desc:'Revisa el almacén detrás de la panadería y vuelve con Sira.',type:'flag',need:1,reward:{gold:12,aff:8,xp:40},avail:()=>!!W.flags.rumorHoard&&!W.flags.investigated},
+  maestro:{giver:'dorran',hidden:true,once:true,title:'La forja del maestro',desc:'Dorran te confió su secreto: trae un Cristal lunar de las Ruinas.',type:'item',item:'cristal',need:1,reward:{gold:40,aff:15,xp:80,title:'Heredero del Yunque'},avail:()=>npcById('dorran').aff>=25&&P.bestGrade>=2},
+};
+const activeQ=id=>QUESTS.find(q=>q.id===id);
+function qProgress(q){ const d=QT[q.id]; if(d.type==='item') return Math.min(d.need,P.inv[d.item]||0); return Math.min(d.need,q.progress); }
+function qDone(q){ return qProgress(q)>=QT[q.id].need; }
+function offerable(n){ return Object.keys(QT).filter(id=>{ const d=QT[id]; if(d.giver!==n.id||activeQ(id)) return false; if(d.once&&doneAt[id]!=null) return false; if(doneAt[id]!=null&&W.day*1440+W.min-doneAt[id]<360) return false; return d.avail(); }); }
+function deliverable(n){ return QUESTS.filter(q=>QT[q.id].giver===n.id&&qDone(q)); }
+function acceptQuest(id){ if(activeQ(id)) return; QUESTS.push({id,progress:0}); toast('Misión aceptada: '+QT[id].title,'gold'); SFX.pick(); renderQuests(); }
+function deliverQuest(q,n){
+  const d=QT[q.id]; if(d.type==='item') removeItem(d.item,d.need);
+  QUESTS=QUESTS.filter(x=>x!==q); doneAt[q.id]=W.day*1440+W.min;
+  P.gold+=d.reward.gold; n.aff=clamp(n.aff+d.reward.aff,-100,100); addXP(d.reward.xp); SFX.coin();
+  let extra='';
+  if(q.id==='trigo'){ W.wheat+=14; updPrices(); extra=' El pan bajará de precio.'; remember(n,`${P.name} me trajo trigo cuando más lo necesitaba`); }
+  if(q.id==='hierro'){ W.iron+=3; remember(n,`${P.name} me trajo hierro de las rocas del este`); }
+  if(q.id==='limos'){ remember(n,`${P.name} espantó a los limos de mi sembrado`); }
+  if(q.id==='maestro'){ remember(n,`${P.name} trajo un cristal lunar para honrar a mi maestro`); }
+  if(q.id==='investigar'){ W.flags.investigated=true; const b=npcById('bruno');
+    if(W.hoarding){ b.aff=clamp(b.aff-10,-100,100); W.wheat+=18; updPrices(); remember(b,`${P.name} descubrió la harina que escondía`); remember(n,`${P.name} confirmó que Bruno acaparaba harina`); extra=' Bruno tuvo que liberar la harina. El pan bajó, pero Bruno te mira mal.'; }
+    else { b.aff=clamp(b.aff+6,-100,100); remember(b,`${P.name} demostró que yo no escondía harina`); remember(n,`${P.name} desmintió el rumor sobre Bruno`); extra=' El rumor era falso. Bruno te lo agradece.'; } }
+  if(d.reward.title) awardTitle(d.reward.title);
+  toast(`Misión completada: ${d.title} (+${d.reward.gold} monedas, +${d.reward.xp} XP).${extra}`,'gold');
+  renderQuests(); checkTitles();
+}
+function renderQuests(){
+  const ul=$('#questList'); if(!ul) return;
+  if(!QUESTS.length){ ul.innerHTML='<li><small>Habla con los habitantes. Pregúntales si tienen trabajo.</small></li>'; return; }
+  ul.innerHTML=QUESTS.map(q=>{ const d=QT[q.id],done=qDone(q); return `<li class="${done?'done':''}"><b>${esc(d.title)}</b> <span class="mono">${qProgress(q)}/${d.need}</span><small>${done?'Vuelve con '+esc(npcById(d.giver).name)+' para entregarla.':esc(d.desc)}</small></li>`; }).join('');
+}
+
+/* ================= INVENTORY / TITLES / XP ================= */
+function addItem(k,n=1){ P.inv[k]=(P.inv[k]||0)+n; renderQuests(); }
+function removeItem(k,n=1){ P.inv[k]=(P.inv[k]||0)-n; if(P.inv[k]<=0) delete P.inv[k]; renderQuests(); }
+function addXP(x){ P.xp+=x; while(P.xp>=P.lvl*100){ P.xp-=P.lvl*100; P.lvl++; P.maxHp+=10; P.maxMp+=5; P.hp=P.maxHp; P.mp=P.maxMp; SFX.level(); toast(`Subiste a nivel ${P.lvl}.`,'gold'); } }
+const TITLES={'Amigo de los Panaderos':'El pan te cuesta 1 moneda menos.','Azote de Limos':'+10 % de daño de fuego.','Martillo Firme':'Zona de golpe más ancha en la forja.','Viajero Lunar':'+50 % de regeneración de maná.','Heredero del Yunque':'Toda espada que forjes sube un grado.'};
+function awardTitle(t){ if(P.titles.includes(t)) return; P.titles.push(t); if(!P.title) P.title=t; toast(`Título obtenido: «${t}». ${TITLES[t]}`,'gold'); SFX.level(); NPCS.forEach(n=>remember(n,`${P.name} ganó el título «${t}»`)); }
+function checkTitles(){ if(npcById('bruno').aff>=30) awardTitle('Amigo de los Panaderos'); if(P.kills>=10) awardTitle('Azote de Limos'); }
+const tAct=t=>P.title===t;
+
+/* ================= WORLD SIM ================= */
+function moonPhase(){ return (W.day+3)%8; }
+function moonName(){ return MOONS[moonPhase()]; }
+function portalOpen(){ const h=hourNow(); return moonPhase()===4?(h>=19||h<5):(h>=19); }
+function portalOpenAt(){ return portalOpen()?'El portal está abierto.':'El portal abre a las 19:00.'; }
+function isNight(){ const h=W.min/60%24; return h<6||h>=19; }
+function timeStr(){ const m=Math.floor(W.min)%1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function updPrices(){ W.breadPrice=W.wheat<15?7:W.wheat<30?5:4; }
+function slimesNearField(){ return SLIMES.filter(s=>s.alive&&Math.hypot(s.pos.x+32,s.pos.z-14)<16).length; }
+function hourTick(){
+  const h=hourNow();
+  W.wheat+=(slimesNearField()>=3?-1:2.5); if(h>=6&&h<19) W.wheat-=2.2; W.wheat=clamp(W.wheat,0,60);
+  if(h>=7&&h<18) W.iron=Math.max(0,W.iron-.35);
+  updPrices();
+  if(W.fragment&&W.day*1440+W.min>W.fragment.exp){ scene.remove(W.fragment.mesh); W.fragment=null; toast('Tu fragmento de recuerdo se desvaneció.','bad'); }
+  if(h===6) NPCS.forEach(n=>{ n.memory=n.memory.slice(-8); });
+}
+function advance(mins){
+  const before=Math.floor(W.min/60);
+  W.min+=mins; while(W.min>=1440){ W.min-=1440; W.day++; }
+  const after=Math.floor(W.min/60); const steps=((after-before)+24)%24 || (mins>=60?1:0);
+  for(let i=0;i<steps;i++) hourTick();
+}
+
+/* ================= SLIMES ================= */
+const SLIMES=[];
+const ZONES=[{x:-32,z:14,r:7,n:3},{x:54,z:4,r:12,n:5}];
+const slimeGeo=new T.SphereGeometry(.55,14,10);
+function spawnSlime(z){ const m=new T.Mesh(slimeGeo,new T.MeshLambertMaterial({color:0x6fd36a,transparent:true,opacity:.82,emissive:0x0e3a0c})); m.castShadow=true; scene.add(m);
+  const eyes=new T.Group(); [-.17,.17].forEach(x=>{ const e=new T.Mesh(new T.SphereGeometry(.07,6,6),M('#102010')); e.position.set(x,.15,.45); eyes.add(e); }); m.add(eyes);
+  const mk=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0xff4040,transparent:true,depthTest:false,depthWrite:false,fog:false})); mk.scale.set(.8,.8,1); mk.renderOrder=20; mk.visible=false; scene.add(mk);
+  const a=rand(0,TAU),r=rand(0,z.r); const s={m,mk,zone:z,pos:new T.Vector3(z.x+Math.cos(a)*r,0,z.z+Math.sin(a)*r),vy:0,vel:V3(),hop:rand(0,1),hp:30,alive:true,hitT:0,dmgT:0,resp:0};
+  s.pos.y=terrainH(s.pos.x,s.pos.z); SLIMES.push(s); }
+ZONES.forEach(z=>{ for(let i=0;i<z.n;i++) spawnSlime(z); });
+function updSlimes(dt){
+  for(const s of SLIMES){
+    if(!s.alive){ s.resp-=dt; if(s.resp<=0){ const z=s.zone,a=rand(0,TAU),r=rand(0,z.r); s.pos.set(z.x+Math.cos(a)*r,0,z.z+Math.sin(a)*r); s.pos.y=terrainH(s.pos.x,s.pos.z); s.hp=30; s.alive=true; s.m.visible=true; } s.mk.visible=false; continue; }
+    const g=terrainH(s.pos.x,s.pos.z); const dx=P.pos.x-s.pos.x,dz=P.pos.z-s.pos.z,d=Math.hypot(dx,dz);
+    const grounded=s.pos.y<=g+.001;
+    if(grounded){ s.hop-=dt; s.vel.multiplyScalar(.8);
+      if(s.hop<=0){ s.hop=rand(.7,1.4); s.vy=rand(3.5,5); let tx,tz; if(d<13&&P.alive){ tx=dx/d; tz=dz/d; } else { const a=rand(0,TAU); tx=Math.cos(a); tz=Math.sin(a); const zd=Math.hypot(s.pos.x-s.zone.x,s.pos.z-s.zone.z); if(zd>s.zone.r){ tx=(s.zone.x-s.pos.x)/zd; tz=(s.zone.z-s.pos.z)/zd; } } s.vel.set(tx*2.6,0,tz*2.6); } }
+    s.vy-=16*dt; s.pos.x+=s.vel.x*dt; s.pos.z+=s.vel.z*dt; s.pos.y+=s.vy*dt; if(s.pos.y<g){ s.pos.y=g; s.vy=0; }
+    pushOut(s.pos,.5);
+    const sq=grounded?1+Math.sin(s.hop*8)*.05:1; s.m.scale.set(1/sq*1.05,.72*sq*(grounded?1:1.15),1/sq*1.05);
+    s.m.position.set(s.pos.x,s.pos.y+.42,s.pos.z); s.m.rotation.y=Math.atan2(s.vel.x,s.vel.z);
+    if(s.hitT>0){ s.hitT-=dt; s.m.material.emissive.setHex(0xffffff); } else s.m.material.emissive.setHex(0x0e3a0c);
+    s.mk.visible=hasJob('rastreador')&&d<(P.cls==='rastreador'?45:25); s.mk.position.set(s.pos.x,s.pos.y+1.3,s.pos.z);
+    s.dmgT-=dt; if(d<1.05&&Math.abs(P.pos.y-s.pos.y)<1.2&&s.dmgT<=0&&P.alive){ s.dmgT=1; hurtPlayer(9); }
+  }
+}
+function damageSlime(s,dmg){ s.hp-=dmg; s.hitT=.12; SFX.squish(); if(s.hp<=0){ s.alive=false; s.m.visible=false; s.resp=45; burst(s.m.position,0x7dff70,22,3,.9,.45); P.kills++; addItem('gel'); const g=2+Math.floor(Math.random()*3); P.gold+=g; addXP(12); const q=activeQ('limos'); if(q) q.progress++; renderQuests(); checkTitles(); } }
+
+/* ================= SPELLS / PROJECTILES ================= */
+const SHOTS=[];
+const shotGeo=new T.SphereGeometry(.16,10,8);
+const shieldMesh=new T.Mesh(new T.SphereGeometry(1.1,20,14),new T.MeshBasicMaterial({color:0x6fd3ff,transparent:true,opacity:.18,depthWrite:false,side:T.DoubleSide})); shieldMesh.visible=false; scene.add(shieldMesh);
+function castSpell(i,origin,dir,power=1){
+  const sp=SPELLS[i]; if(!P.alive) return false;
+  if(P.mp<sp.mp){ toast('No te alcanza el maná.','bad'); return false; }
+  P.mp-=sp.mp;
+  if(sp.id==='fuego'){ const m=new T.Mesh(shotGeo,new T.MeshBasicMaterial({color:0xffa040})); const gl=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0xff7a2a,transparent:true,blending:T.AdditiveBlending,depthWrite:false,fog:false})); gl.scale.set(1.3,1.3,1); m.add(gl);
+    m.position.copy(origin); scene.add(m); SHOTS.push({m,vel:dir.clone().normalize().multiplyScalar(19),life:2.2,power}); SFX.fire(); }
+  else if(sp.id==='escudo'){ P.shieldT=6*(1+jw('guardian'))*power; SFX.shield(); burst(tmpA.copy(P.pos).setY(P.pos.y+1.1),0x6fd3ff,20,2,.8,.4); }
+  else if(sp.id==='curar'){ const amt=30*(1+jw('sanador'))*power; P.hp=Math.min(P.maxHp,P.hp+amt); if(hasSyn('sanador+cocinero')) P.st=Math.min(P.maxSt,P.st+40); if(hasSyn('guardian+sanador')) P.shieldT=Math.max(P.shieldT,3); SFX.heal(); burst(tmpA.copy(P.pos).setY(P.pos.y+1),0x9dff8a,26,1.6,1.1,.35,1.4); }
+  return true;
+}
+function updShots(dt){
+  for(let i=SHOTS.length-1;i>=0;i--){ const s=SHOTS[i]; s.life-=dt;
+    if(hasSyn('elementalista+rastreador')){ let best=null,bd=14; for(const sl of SLIMES){ if(!sl.alive) continue; const d=sl.m.position.distanceTo(s.m.position); if(d<bd){bd=d;best=sl;} } if(best){ tmpA.subVectors(best.m.position,s.m.position).normalize().multiplyScalar(19); s.vel.lerp(tmpA,.08); } }
+    s.m.position.addScaledVector(s.vel,dt);
+    if(Math.random()<.6) burst(s.m.position,0xff8a3d,1,.4,.35,.3);
+    let hit=null; for(const sl of SLIMES){ if(sl.alive&&sl.m.position.distanceTo(s.m.position)<.95){ hit=sl; break; } }
+    const g=s.m.position.x>250?0:terrainH(s.m.position.x,s.m.position.z);
+    if(hit||s.life<=0||s.m.position.y<g){
+      if(hit){ let dmg=22*s.power*(1+.4*jw('elementalista'))*(P.cls==='rastreador'?1.15:1)*(tAct('Azote de Limos')?1.1:1)*(P.fireBuffT>0?1.25:1); damageSlime(hit,dmg); }
+      burst(s.m.position,0xff7a2a,18,3,.6,.5); SFX.boom(); scene.remove(s.m); SHOTS.splice(i,1); }
+  }
+}
+function hurtPlayer(n){
+  if(P.shieldT>0) n*=(hasSyn('guardian+herrero')&&P.forgedOwn)?.2:.3;
+  if(hasSyn('guardian+rastreador')) n*=.8;
+  P.hp-=n; SFX.hurt(); const h=$('#hurt'); h.style.boxShadow='inset 0 0 120px 40px rgba(200,40,40,.55)'; setTimeout(()=>h.style.boxShadow='inset 0 0 120px 30px rgba(200,40,40,0)',180);
+  if(P.hp<=0) die();
+}
+function die(){
+  P.alive=false; P.hp=0; fade(true);
+  const lost=Math.floor(P.xp*.3); P.xp-=lost;
+  if(W.fragment) scene.remove(W.fragment.mesh);
+  const m=new T.Group(); const core=new T.Mesh(new T.IcosahedronGeometry(.25,1),new T.MeshBasicMaterial({color:0xbfe8ff})); m.add(core); const gl=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0x9fd8ff,transparent:true,blending:T.AdditiveBlending,depthWrite:false,fog:false})); gl.scale.set(1.6,1.6,1); m.add(gl);
+  m.position.copy(P.pos).setY(P.pos.y+1); scene.add(m);
+  W.fragment={mesh:m,xp:lost,exp:W.day*1440+W.min+180};
+  setTimeout(()=>{ teleportTo(RESPAWN); P.hp=Math.round(P.maxHp*.6); P.alive=true; fade(false); toast(`Renaciste en el Santuario. Tu fragmento de recuerdo (${lost} XP) quedó donde caíste: recupéralo antes de 3 horas.`,'bad'); },900);
+}
+
+/* ================= FORGE ================= */
+const FORGE={active:false,hits:[],x:0,dir:1,speed:.9,zone:.5,w:.12,vrPulse:0};
+function forgeWidth(){ let w=.11*(1+.8*jw('herrero')); if(hasSyn('cocinero+herrero')&&P.buffT>0) w*=1.15; if(tAct('Martillo Firme')) w*=1.2; return w; }
+function startForge(){
+  if(!(P.inv.hierro>0)){ toast('Necesitas 1 mineral de hierro. Hay rocas al este del pueblo.','bad'); return; }
+  removeItem('hierro'); FORGE.active=true; FORGE.hits=[]; FORGE.x=0; FORGE.dir=1; FORGE.speed=.85; FORGE.w=forgeWidth(); FORGE.zone=rand(.25,.75);
+  const d=npcById('dorran'); if(!d.hidden&&d.pos.distanceTo(P.pos)<8){ npcSay(d,pick(['Veamos esas manos.','No golpees con rabia. Golpea con oído.','El metal te dirá cuándo.']),{gest:'pensar'}); }
+  if(XR.on){ FORGE.vrPulse=0; hammerOn(true); toast('Agarra el martillo con la mano derecha y golpea el yunque cuando el anillo brille. 5 golpes.'); }
+  else { $('#forge').hidden=false; $('#forgeInfo').textContent=`Golpe 1 de 5. ${hasJob('herrero')?'Tu trabajo de Herrero ensancha la zona.':''}`; drawForge(); }
+}
+function forgeHit(acc){
+  FORGE.hits.push(acc); SFX.clang(acc); burst(anvilTop,0xffc060,10+Math.round(acc*20),3,.5,.25,1);
+  if(!XR.on){ $('#fHits').innerHTML=FORGE.hits.map(a=>`<span style="color:${a>.8?'#7ccf8a':a>.5?'#e9b44c':'#e0625b'}">${Math.round(a*100)}%</span>`).join(''); }
+  FORGE.zone=rand(.15,.85); FORGE.speed+=.12;
+  if(FORGE.hits.length>=5) finishForge(); else if(!XR.on) $('#forgeInfo').textContent=`Golpe ${FORGE.hits.length+1} de 5.`;
+}
+function finishForge(){
+  FORGE.active=false; $('#forge').hidden=true; hammerOn(false);
+  const avg=FORGE.hits.reduce((a,b)=>a+b,0)/FORGE.hits.length;
+  let g=avg>.92?4:avg>.8?3:avg>.62?2:avg>.4?1:0;
+  if(P.cls==='herrero'&&avg>.7) g=Math.min(4,g+1);
+  if(tAct('Heredero del Yunque')) g=Math.min(4,g+1);
+  if(hasSyn('elementalista+herrero')&&P.fireBuffT>0) g=Math.min(4,g+1);
+  addItem('espada:'+g); P.bestGrade=Math.max(P.bestGrade,g); P.forgedOwn=true;
+  toast(`Forjaste: ${itemName('espada:'+g)} — precisión ${Math.round(avg*100)} %.`,'gold');
+  const d=npcById('dorran');
+  if(g>=2) awardTitle('Martillo Firme');
+  if(g>=2) remember(d,`${P.name} forjó una espada ${GRADES[g].toLowerCase()} en mi yunque`); else remember(d,`${P.name} forjó una espada ${GRADES[g].toLowerCase()}; le falta oído`);
+  if(!d.hidden&&d.pos.distanceTo(P.pos)<10){ d.aff=clamp(d.aff+(g>=2?5:1),-100,100); npcSay(d,g>=3?'…Esto no lo hizo la suerte. Bien.':g>=2?'Aceptable. Para ser tu primera semana.':'Metal triste. Otra vez.',{gest:g>=2?'reir':'enojado'}); }
+}
+function drawForge(){ $('#fZone').style.left=((FORGE.zone-FORGE.w)*100)+'%'; $('#fZone').style.width=(FORGE.w*200)+'%'; $('#fMark').style.left=(FORGE.x*100)+'%'; }
+function forgeDesktopHit(){ FPA.hitT=.3; const d=Math.abs(FORGE.x-FORGE.zone); forgeHit(clamp(1-d/(FORGE.w*2.2),0,1)); drawForge(); }
+
+/* ================= EATING ================= */
+const EAT={held:null,key:null,bites:0,anim:0,cd:0};
+function foodKey(){ return ['pan','manzana'].find(k=>P.inv[k]>0); }
+function startHold(k){
+  if(EAT.held) dropHeld(true);
+  EAT.key=k; EAT.bites=0; EAT.held=itemMesh(k); EAT.held.scale.setScalar(1.6);
+  if(XR.on&&holder('right')){ attachToHand('right',EAT.held,0,-.02,-.06); EAT.held.scale.setScalar(1); }
+  else { camera.add(EAT.held); EAT.held.scale.setScalar(1.1); EAT.held.position.set(.25,-.27,-.5); }
+}
+function dropHeld(silent){ if(EAT.held){ EAT.held.parent&&EAT.held.parent.remove(EAT.held); EAT.held=null; EAT.key=null; } }
+function bite(){
+  if(!EAT.held||EAT.cd>0) return; EAT.cd=.55; EAT.bites++; SFX.crunch(); EAT.held.scale.multiplyScalar(.8);
+  tmpA.set(0,-.1,-.3).applyMatrix4(camera.matrixWorld); burst(tmpA,0xe8c890,6,.8,.4,.06);
+  if(EAT.bites>=3){ const k=EAT.key,f=ITEMS[k].food,mul=1+1.5*jw('cocinero'); removeItem(k);
+    P.hp=Math.min(P.maxHp,P.hp+f.hp*mul); P.st=Math.min(P.maxSt,P.st+f.st*mul); if(f.buff){ P.buffT=f.buff*(P.cls==='cocinero'?2:1); }
+    if(hasSyn('elementalista+cocinero')) P.fireBuffT=60;
+    toast(`Comiste ${ITEMS[k].name.toLowerCase()}: +${Math.round(f.hp*mul)} vida, +${Math.round(f.st*mul)} energía${f.buff?'. Te sientes bien alimentado.':'.'}`); dropHeld(); }
+}
+function eatDesktop(){ const k=foodKey(); if(!k){ toast('No tienes comida. Compra pan a Bruno o recoge manzanas.','bad'); return; } if(!EAT.held||EAT.key!==k) startHold(k); EAT.anim=1; }
+
+/* ================= INTERACTABLES ================= */
+const INTER=[];
+function addI(o){ INTER.push(o); }
+NPCS.forEach(n=>addI({pos:()=>tmpC.copy(n.pos).setY(n.pos.y+1.4),r:2.6,ok:()=>!n.hidden&&n.busy!=='chat',label:()=>`Hablar con ${n.name}`,act:()=>openDialog(n),npc:n}));
+addI({pos:()=>tmpC.set(-14,1.1,-7.6),r:2.6,ok:()=>{const b=npcById('bruno');return !b.hidden&&b.place==='bakery'&&!b.path.length;},label:()=>`Comprar pan (${breadCost()} monedas)`,act:buyBread});
+addI({pos:()=>tmpC.set(-14,1,-16.2),r:2.2,ok:()=>activeQ('investigar')&&!activeQ('investigar').progress,label:()=>'Revisar el almacén de Bruno',act:inspectStore});
+addI({pos:()=>tmpC.copy(anvilTop),r:2.4,ok:()=>!FORGE.active,label:()=>'Forjar una espada (1 mineral de hierro)',act:startForge});
+addI({pos:()=>tmpC.set(-5,1,10),r:2.6,ok:()=>true,label:()=>'Abrir tu puesto de venta',act:openStall});
+apples.forEach(a=>addI({pos:()=>a.m.getWorldPosition(tmpC),r:3.4,ok:()=>a.t<=0,label:()=>'Recoger manzana',act:()=>{ a.t=240; a.m.visible=false; addItem('manzana'); SFX.pick(); toast('Recogiste una manzana.'); }}));
+sheaves.forEach(s=>addI({pos:()=>tmpC.copy(s.g.position).setY(.6),r:2.4,ok:()=>s.t<=0,label:()=>'Recoger gavilla de trigo',act:()=>{ s.t=180; s.g.visible=false; addItem('trigo'); SFX.pick(); toast('Recogiste una gavilla de trigo.'); }}));
+ores.forEach(o=>addI({pos:()=>tmpC.copy(o.g.position).setY(o.g.position.y+.9),r:2.8,ok:()=>!(W.oreT[o.id]>0),label:()=>'Picar mineral de hierro',act:()=>{ W.oreT[o.id]=150; o.specks.visible=false; addItem('hierro',hasSyn('herrero+rastreador')?2:1); SFX.clang(.3); burst(tmpA.copy(o.g.position).setY(o.g.position.y+1),0xd27a3a,14,2.5,.6,.3); toast('Obtuviste mineral de hierro.'); }}));
+addI({pos:()=>tmpC.copy(moonCrystal.position),r:2.6,ok:()=>moonCrystal.visible,label:()=>'Tomar el Cristal lunar',act:()=>{ moonCrystal.visible=false; W.crystalDay=W.day; addItem('cristal'); SFX.heal(); toast('Tomaste un Cristal lunar. Brilla con luz fría.','gold'); }});
+addI({pos:()=>tmpC.copy(PORTAL).setY(PORTAL.y+2),r:4,ok:()=>!portalOpen(),label:()=>`Portal cerrado — ${moonPhase()===4?'luna llena: abre de 19:00 a 05:00':'abre de 19:00 a 24:00'}`,act:()=>toast('El portal duerme. Vuelve a las 19:00 o descansa una hora.')});
+addI({pos:()=>tmpC.copy(sanctCrystal.position),r:3,ok:()=>true,label:()=>'Santuario — punto de renacimiento',act:()=>{ toast('Si caes, renacerás aquí. Tu recuerdo quedará donde caíste.'); }});
+function breadCost(){ let c=W.breadPrice; c=Math.round(c*(1-.25*jw('comerciante'))); if(hasSyn('cocinero+comerciante')) c=Math.ceil(c/2); if(tAct('Amigo de los Panaderos')) c-=1; return Math.max(1,c); }
+function buyBread(){ const c=breadCost(); if(P.gold<c){ toast('No tienes monedas suficientes.','bad'); return; } P.gold-=c; addItem('pan'); SFX.coin(); const b=npcById('bruno'); b.aff=clamp(b.aff+1,-100,100); if(Math.random()<.5) npcSay(b,pick(['Crujiente. Como debe ser.','No lo aplastes.','Hecho a mano, no por menú.']),{gest:'hablar'}); if(b.aff%5===0) remember(b,`${P.name} me compra pan seguido`); checkTitles(); }
+function inspectStore(){ const q=activeQ('investigar'); q.progress=1; renderQuests(); SFX.pick();
+  toast(W.hoarding?'Bajo una lona hay seis sacos de harina escondidos. Vuelve con Sira.':'El almacén está casi vacío: unos sacos rotos y nada más. Vuelve con Sira.','gold'); }
+
+/* ================= STALL / ECONOMY ================= */
+function stallMeshes(){ STALL.forEach((s,i)=>{ if(!s.mesh){ s.mesh=itemMesh(s.key); s.mesh.scale.setScalar(2.2); scene.add(s.mesh); } s.mesh.position.set(-5.9+i*.9,1.02,10); }); }
+function placeOnStall(k,price){ if(STALL.length>=3){ toast('Tu puesto solo tiene 3 espacios.','bad'); return false; } if(!(P.inv[k]>0)) return false; removeItem(k); STALL.push({key:k,price:Math.max(1,Math.round(price))}); stallMeshes(); SFX.pick(); return true; }
+function takeFromStall(i){ const s=STALL[i]; if(!s) return; if(s.mesh) scene.remove(s.mesh); STALL.splice(i,1); addItem(s.key); stallMeshes(); }
+let shopT=0;
+function updShop(dt){
+  shopT-=dt; if(shopT>0||!STALL.length) return; shopT=6;
+  for(const n of NPCS){ if(n.hidden||n.busy||Math.hypot(n.pos.x+5,n.pos.z-10)>9) continue;
+    const i=Math.floor(Math.random()*STALL.length),s=STALL[i]; const base=itemBase(s.key)*(1+.35*jw('comerciante'))*(hasSyn('comerciante+herrero')&&s.key.startsWith('espada')?1.3:1);
+    const ch=clamp(1.5-s.price/base,0,1)*.45*(1+n.aff/200);
+    if(Math.random()<ch){ P.gold+=s.price; if(s.mesh) scene.remove(s.mesh); STALL.splice(i,1); stallMeshes(); SFX.coin(); if(hasSyn('sanador+comerciante')) P.mp=Math.min(P.maxMp,P.mp+10);
+      n.aff=clamp(n.aff+1,-100,100); remember(n,`Le compré ${itemName(s.key).toLowerCase()} a ${P.name} por ${s.price} monedas`);
+      toast(`${n.name} compró ${itemName(s.key)} en tu puesto por ${s.price} monedas.`,'gold'); if(n.pos.distanceTo(P.pos)<14) npcSay(n,pick(['Me lo llevo.','Buen precio.','Esto me sirve.']),{gest:'reir'}); break; }
+    else if(s.price>base*1.5&&Math.random()<.25&&n.pos.distanceTo(P.pos)<14){ npcSay(n,`¿${s.price} monedas? Ni loco.`,{gest:'enojado'}); break; }
+  }
+}
+function openStall(){
+  const keys=Object.keys(P.inv).filter(k=>P.inv[k]>0);
+  openPanel('Tu puesto',`
+    <p class="hint">Los habitantes que pasen cerca compran si el precio les parece justo. Precio base entre paréntesis.${hasJob('comerciante')?' Tu trabajo de Comerciante hace que acepten precios más altos.':''}</p>
+    <div class="sect">En venta (${STALL.length}/3)</div>
+    <ul class="list">${STALL.length?STALL.map((s,i)=>`<li><div class="grow">${esc(itemName(s.key))}<small>${s.price} monedas</small></div><div class="acts"><button class="btn small" data-take="${i}">Retirar</button></div></li>`).join(''):'<li><small>Vacío.</small></li>'}</ul>
+    <div class="sect">Tu inventario</div>
+    <ul class="list">${keys.length?keys.map(k=>`<li><div class="grow">${esc(itemName(k))} ×${P.inv[k]}<small>Base ${itemBase(k)}</small></div><div class="acts"><input class="price" type="number" min="1" id="pr-${esc(k)}" value="${itemBase(k)}" aria-label="Precio"><button class="btn small" data-put="${esc(k)}">Poner</button></div></li>`).join(''):'<li><small>No tienes nada que vender.</small></li>'}</ul>`,
+  body=>{ body.querySelectorAll('[data-take]').forEach(b=>b.onclick=()=>{ takeFromStall(+b.dataset.take); openStall(); });
+          body.querySelectorAll('[data-put]').forEach(b=>b.onclick=()=>{ const k=b.dataset.put; const v=+body.querySelector('#pr-'+CSS.escape(k)).value; if(placeOnStall(k,v)) openStall(); }); });
+}
+
+/* ================= DIALOGUE ================= */
+const DLG={npc:null,offer:null,busy:false,ctl:null};
+function affWord(a){ return a>=40?'Le caes muy bien.':a>=15?'Le caes bien.':a<=-25?'Desconfía mucho de ti.':a<=-5?'No le caes bien.':'Apenas te conoce.'; }
+function openDialog(n){
+  if(DLG.npc) closeDialog();
+  DLG.npc=n; DLG.offer=null; n.busy='player'; n.lookAt=P.pos; n.path=n.path||[];
+  if(document.pointerLockElement) document.exitPointerLock();
+  $('#dlgName').textContent=n.name; $('#dlgRole').textContent=n.role; $('#dlgText').innerHTML=''; $('#dlgOffer').hidden=true;
+  $('#dialog').hidden=XR.on; updAff(); renderOptions(); updateAiNote();
+  if(XR.on) showVRDialog();
+  talk(n,'(El Viajero se acerca y te saluda.)','greet');
+}
+function closeDialog(){ const n=DLG.npc; if(!n) return; DLG.ctl&&DLG.ctl.abort(); n.busy=null; n.lookAt=null; n.h.talk=false; DLG.npc=null; DLG.offer=null; $('#dialog').hidden=true; hideVRDialog(); stopListen(); }
+function updAff(){ const n=DLG.npc; if(!n) return; $('#dlgAffB').style.width=((n.aff+100)/2)+'%'; $('#dlgAffT').textContent=Math.round(n.aff); }
+function dialogOptions(){ const n=DLG.npc; const o=[{t:'¿Qué se cuenta por aquí?',i:'rumor'},{t:'¿Tienes trabajo para mí?',i:'work'}];
+  deliverable(n).forEach(q=>o.push({t:'Entregar: '+QT[q.id].title,i:'deliver',q}));
+  o.push({t:'Adiós',i:'bye'}); return o; }
+function renderOptions(){ const box=$('#dlgOptions'); box.innerHTML=''; dialogOptions().forEach(o=>{ const b=document.createElement('button'); b.className='btn small'+(o.i==='deliver'?' primary':''); b.textContent=o.t; b.onclick=()=>chooseOption(o); box.appendChild(b); }); drawVRDialog(); }
+function chooseOption(o){
+  const n=DLG.npc; if(!n||DLG.busy&&o.i!=='bye') return; SFX.ui();
+  if(o.i==='bye'){ const line=pick(n.lines.bye); npcSay(n,line,{gest:'saludar',bubble:true}); closeDialog(); return; }
+  if(o.i==='deliver'){ deliverQuest(o.q,n); updAff(); talk(n,`(El Viajero te entrega lo que pediste para «${QT[o.q.id].title}». Reacciona.)`,'thanks'); return; }
+  talk(n,o.t,o.i);
+}
+function sayFree(text){ text=text.trim(); if(!text||!DLG.npc||DLG.busy) return; $('#dlgInput').value=''; const n=norm(text); const intent=/trabajo|mision|ayuda|encargo/.test(n)?'work':/rumor|cuenta|noticia|pasa|chisme/.test(n)?'rumor':/adios|chao|hasta luego|me voy/.test(n)?'bye':'generic'; if(intent==='bye'){ chooseOption({i:'bye'}); return; } talk(DLG.npc,text,intent); }
+function setDlgText(you,text){ const el=$('#dlgText'); el.innerHTML=(you?`<span class="you">Tú: ${esc(you)}</span>`:'')+esc(text); drawVRDialog(); }
+async function talk(n,playerText,intent){
+  DLG.busy=true; const you=playerText.startsWith('(')?'':playerText;
+  setDlgText(you,'…'); n.h.gest='pensar'; n.h.gestT=2;
+  const offers=offerable(n);
+  let res=null;
+  if(AI.mode!=='script'){ res=await askAI(n,playerText,intent,offers); }
+  if(!res) res=scripted(n,intent,offers);
+  if(DLG.npc!==n){ DLG.busy=false; return; }
+  n.aff=clamp(n.aff+clamp(Math.round(res.afinidad||0),-3,3),-100,100); updAff();
+  n.convo.push({p:you||playerText,n:res.decir}); if(n.convo.length>4) n.convo.shift();
+  if(intent==='greet'&&n.memory.length===0) remember(n,`Conocí a ${P.name}, ${JOBS[P.cls].name.toLowerCase()} de trabajo principal y ${JOBS[P.sub].name.toLowerCase()} de secundario`);
+  setDlgText(you,res.decir); npcSay(n,res.decir,{gest:res.emote&&res.emote!=='ninguno'?res.emote:'hablar',bubble:false});
+  const off=res.ofrecer_mision&&offers.includes(res.ofrecer_mision)?res.ofrecer_mision:(intent==='work'&&offers.length?offers[0]:null);
+  showOffer(off); renderOptions(); DLG.busy=false; checkTitles();
+}
+function showOffer(id){ DLG.offer=id; const box=$('#dlgOffer'); if(!id){ box.hidden=true; drawVRDialog(); return; } const d=QT[id];
+  box.hidden=false; box.innerHTML=`<span class="eyebrow">${d.hidden?'Misión oculta':'Misión'} · la decide el juego</span><h3>${esc(d.title)}</h3><p>${esc(d.desc)}</p><p class="mono" style="font-size:13px;color:var(--muted)">Recompensa: ${d.reward.gold} monedas · ${d.reward.xp} XP · +${d.reward.aff} afinidad${d.reward.title?' · título «'+esc(d.reward.title)+'»':''}</p><div class="cta"><button class="btn primary small" id="offYes">Aceptar</button><button class="btn small" id="offNo">Ahora no</button></div>`;
+  $('#offYes').onclick=()=>{ acceptQuest(id); showOffer(null); }; $('#offNo').onclick=()=>showOffer(null); drawVRDialog(); }
+function scripted(n,intent,offers){
+  const L=n.lines; let t;
+  if(intent==='greet') t=pick(L.greet)+(n.aff>=20?' Me alegra verte.':'');
+  else if(intent==='work') t=offers.length?(QT[offers[0]].hidden?'…Has demostrado buen oído. Mi maestro forjaba con cristales lunares. Tráeme uno de las Ruinas.':pick(L.work)):pick(L.none);
+  else if(intent==='rumor') t=n.rumors.length?'Dicen por ahí: '+n.rumors[n.rumors.length-1]:pick(L.generic);
+  else if(intent==='thanks') t=pick(L.thanks);
+  else t=pick(L.generic);
+  if(n.memory.length&&intent==='greet'&&Math.random()<.5){ const m=n.memory[n.memory.length-1]; t+=' Todavía recuerdo que '+m.charAt(0).toLowerCase()+m.slice(1)+'.'; }
+  return {decir:t,emote:intent==='greet'?'saludar':intent==='thanks'?'reir':'hablar',afinidad:intent==='greet'?1:0,ofrecer_mision:intent==='work'&&offers.length?offers[0]:null};
+}
+function npcPrompt(n,playerText,intent,offers){
+  const q=offers.map(id=>`- ${id}: ${QT[id].title} — ${QT[id].desc}${QT[id].hidden?' (misión oculta: solo la ofreces porque confías en el Viajero)':''}`).join('\n')||'- (ninguna)';
+  const mem=n.memory.slice(-6).map(m=>'- '+m).join('\n')||'- (aún nada)';
+  const rum=n.rumors.slice(-4).map(r=>'- '+r).join('\n')||'- (ninguno)';
+  const conv=n.convo.slice(-3).map(c=>`Viajero: ${c.p}\n${n.name}: ${c.n}`).join('\n')||'(ninguna)';
+  return `Interpreta a ${n.name}, ${n.role.toLowerCase()} del pueblo de Valdeluz, en un mundo de fantasía medieval.
+Personalidad: ${n.persona}.
+Forma de hablar: ${n.style}.
+Situación: son las ${timeStr()} del día ${W.day}, ${isNight()?'de noche':'de día'}. Luna ${moonName()}. ${portalOpen()?'El portal está abierto.':'El portal está cerrado (abre a las 19:00).'}
+Pueblo: quedan ${Math.round(W.wheat)} sacos de trigo; el pan cuesta ${W.breadPrice} monedas; ${slimesNearField()} limos rondan el sembrado.
+Hablas con ${P.name}, un Viajero (trabajo principal: ${JOBS[P.cls].name}; secundario: ${JOBS[P.sub].name}${P.title?', título «'+P.title+'»':''}). Tu afinidad con él o ella: ${Math.round(n.aff)} de -100 a 100. ${affWord(n.aff)}
+Lo que recuerdas del Viajero:
+${mem}
+Rumores que has oído:
+${rum}
+Conversación reciente:
+${conv}
+Misiones que puedes ofrecer AHORA (usa solo estos id):
+${q}
+Reglas: responde en español, máximo 40 palabras, siempre en personaje. Nunca digas que eres una IA ni hables del mundo real. No inventes objetos, precios ni recompensas: el juego los decide. Si el Viajero pide trabajo y hay una misión disponible, ofrécela con su id. Si es grosero, baja la afinidad.
+El Viajero dice: ${playerText}
+Responde solo con JSON: {"decir": "lo que dices", "emote": "saludar|reir|pensar|enojado|ninguno", "afinidad": entero de -3 a 3, "ofrecer_mision": "id" o null}`;
+}
+async function askAI(n,playerText,intent,offers){
+  const prompt=npcPrompt(n,playerText,intent,offers);
+  speakFiller(n);
+  try{
+    if(AI.mode==='sample'){
+      DLG.ctl=new AbortController();
+      const r=await AI.sample.json(prompt,{modelTier:'quick',cache:false,signal:DLG.ctl.signal});
+      return validAI(r);
+    }
+    if(AI.mode==='api'){
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':AI.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:300,messages:[{role:'user',content:prompt}]})});
+      if(!res.ok) throw {code:'http_'+res.status};
+      const j=await res.json(); const txt=(j.content||[]).map(c=>c.text||'').join(''); const m=txt.match(/\{[\s\S]*\}/); return validAI(m?JSON.parse(m[0]):null);
+    }
+  }catch(e){
+    const code=e&&e.code;
+    if(code==='cancelled') return null;
+    if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)){ AI.mode=AI.key&&!window.claude?'api':'script'; toast('La IA de los habitantes no está disponible. Sigo con el guion.','bad'); updateAiNote(); }
+    else if(code==='rate_limited') toast('Demasiadas conversaciones seguidas. Este habitante usará su guion un momento.','bad');
+    else if(String(code||'').startsWith('http_')){ toast('La clave de API fue rechazada ('+code.slice(5)+'). Revisa Ajustes.','bad'); }
+    else if(!AI.warned){ AI.warned=true; toast('La IA tardó o falló; este habitante usa su guion.','bad'); }
+  }
+  return null;
+}
+function validAI(r){ if(!r||typeof r!=='object'||typeof r.decir!=='string'||!r.decir.trim()) return null;
+  const em=['saludar','reir','pensar','enojado','ninguno'].includes(r.emote)?r.emote:'hablar';
+  return {decir:r.decir.slice(0,280),emote:em,afinidad:Number(r.afinidad)||0,ofrecer_mision:typeof r.ofrecer_mision==='string'?r.ofrecer_mision:null}; }
+function speakFiller(n){ const f={bruno:'Hmph…',lia:'¡Ay, a ver…!',dorran:'Hmm.',sira:'Mmm…'}[n.id]; if(f&&TTS.on&&TTS.ok) speak(f,n.voice,()=>n.h.talk=true,()=>n.h.talk=false,.8); }
+
+/* ================= UI: toasts, panels ================= */
+function toast(msg,kind=''){ const el=document.createElement('div'); el.className='toast '+kind; el.textContent=msg; $('#toasts').appendChild(el); setTimeout(()=>el.remove(),5200); while($('#toasts').children.length>4) $('#toasts').firstChild.remove(); if(XR.on) vrToast(msg); }
+function fade(on){ $('#fade').style.opacity=on?1:0; }
+function openPanel(title,html,mount){ $('#panelTitle').textContent=title; const b=$('#panelBody'); b.innerHTML=html; $('#panel').hidden=false; if(document.pointerLockElement) document.exitPointerLock(); mount&&mount(b); }
+function closePanel(){ $('#panel').hidden=true; }
+$('#panelClose').onclick=closePanel;
+function openInventory(){
+  const keys=Object.keys(P.inv).filter(k=>P.inv[k]>0);
+  openPanel('Inventario',`
+    <ul class="list">${keys.length?keys.map(k=>`<li><div class="grow">${esc(itemName(k))} <span class="mono">×${P.inv[k]}</span><small>Valor base ${itemBase(k)}</small></div><div class="acts">${ITEMS[k]?.food?`<button class="btn small" data-eat="${k}">Comer</button>`:''}</div></li>`).join(''):'<li><small>Vacío.</small></li>'}</ul>
+    <div class="sect">Títulos</div>
+    <ul class="list">${P.titles.length?P.titles.map(t=>`<li><div class="grow">${esc(t)}<small>${esc(TITLES[t])}</small></div><div class="acts"><button class="btn small" data-title="${esc(t)}" aria-pressed="${P.title===t}">${P.title===t?'Activo':'Activar'}</button></div></li>`).join(''):'<li><small>Gana títulos con tus hazañas. Solo uno está activo a la vez.</small></li>'}</ul>`,
+  b=>{ b.querySelectorAll('[data-eat]').forEach(x=>x.onclick=()=>{ closePanel(); startHold(x.dataset.eat); EAT.anim=1; });
+       b.querySelectorAll('[data-title]').forEach(x=>x.onclick=()=>{ P.title=x.dataset.title; openInventory(); }); });
+}
+function openRumors(){ openPanel('Rumores del pueblo',`<p class="hint">Lo que los habitantes se dicen entre ellos. Los rumores abren misiones y cambian lo que piensan de ti.</p><ul class="list">${W.rumorLog.length?W.rumorLog.map(r=>`<li><div class="grow">${esc(r.text)}<small>Día ${r.day} · ${r.t}</small></div></li>`).join(''):'<li><small>Aún no oyes nada. Los habitantes se visitan y conversan solos; acércate cuando lo hagan.</small></li>'}</ul>`); }
+function openSettings(){
+  openPanel('Ajustes',`
+    <div class="setting"><span>Voces de los habitantes</span><button class="btn small" id="sTTS" aria-pressed="${TTS.on}">${TTS.on?'Activadas':'Desactivadas'}</button></div>
+    ${TTS.ok?'':'<p class="warn">Este navegador no tiene síntesis de voz; verás los diálogos como texto.</p>'}
+    <div class="setting"><span>Volumen de efectos</span><input type="range" id="sVol" min="0" max="1" step=".05" value="${master?master.gain.value:.5}" style="width:160px"></div>
+    <div class="sect">Confort en VR</div>
+    <div class="setting"><span>Giro por pasos</span><select id="sSnap"><option value="30">30°</option><option value="45">45°</option><option value="15">15°</option></select></div>
+    <div class="setting"><span>Viñeta al moverte</span><button class="btn small" id="sVig" aria-pressed="${XR.vignette}">${XR.vignette?'Activada':'Desactivada'}</button></div>
+    <div class="setting"><span>Modo sentado</span><button class="btn small" id="sSeat" aria-pressed="${P.seated}">${P.seated?'Sí':'No'}</button></div>
+    ${window.claude?'':`<div class="sect">IA de los habitantes (versión alojada)</div>
+    <p class="hint">Fuera de Claude, puedes poner tu clave de la API de Anthropic para que los habitantes improvisen. Se guarda solo en este dispositivo.</p>
+    <p class="warn">Úsala solo en tu propio visor. No publiques esta página con tu clave puesta: cualquiera con acceso al dispositivo podría leerla.</p>
+    <div class="setting"><input type="text" id="sKey" placeholder="sk-ant-…" value="${AI.key?'••••••••':''}" style="flex:1;min-width:0;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:5px;padding:7px 9px"><button class="btn small" id="sKeySave">Guardar</button><button class="btn small" id="sKeyDel">Borrar</button></div>`}
+    <div class="sect">Partida</div>
+    <div class="setting"><span>Borrar la partida guardada en este navegador</span><button class="btn small" id="sWipe">Borrar</button></div>`,
+  b=>{ b.querySelector('#sTTS').onclick=()=>{ TTS.on=!TTS.on; if(!TTS.on) try{speechSynthesis.cancel();}catch(e){} openSettings(); };
+       b.querySelector('#sVol').oninput=e=>{ initAudio(); if(master) master.gain.value=+e.target.value; };
+       const sn=b.querySelector('#sSnap'); sn.value=String(XR.snap); sn.onchange=()=>XR.snap=+sn.value;
+       b.querySelector('#sVig').onclick=()=>{ XR.vignette=!XR.vignette; openSettings(); };
+       b.querySelector('#sSeat').onclick=()=>{ toggleSeated(); openSettings(); };
+       const ks=b.querySelector('#sKeySave'); if(ks){ ks.onclick=()=>{ const v=b.querySelector('#sKey').value.trim(); if(v&&!v.startsWith('•')){ AI.key=v; try{localStorage.setItem('tv-api-key',v);}catch(e){} AI.mode='api'; toast('Clave guardada en este dispositivo.'); updateAiNote(); openSettings(); } };
+         b.querySelector('#sKeyDel').onclick=()=>{ AI.key=''; try{localStorage.removeItem('tv-api-key');}catch(e){} AI.mode='script'; toast('Clave borrada.'); updateAiNote(); openSettings(); }; }
+       const wp=b.querySelector('#sWipe'); wp.onclick=()=>{ if(wp.dataset.c){ try{localStorage.removeItem(SAVE_KEY);}catch(e){} toast('Partida borrada. Se empezará de cero al recargar.'); wp.textContent='Borrada'; wp.disabled=true; } else { wp.dataset.c=1; wp.textContent='Pulsa otra vez para confirmar'; } };
+  });
+}
+function openHelp(){ openPanel('Controles',`
+  <div class="sect">Teclado y ratón</div>
+  <div class="keys"><kbd>W A S D</kbd><span>Moverte (Mayús para correr)</span><kbd>Clic</kbd><span>Fijar la vista; luego lanzar el hechizo elegido</span><kbd>1 · 2 · 3</kbd><span>Lanzar fuego, escudo o curar</span><kbd>Q (mantener)</kbd><span>Canalizar por voz: di «bola de fuego», «escudo» o «curar»</span><kbd>E</kbd><span>Hablar, recoger, forjar, comprar</span><kbd>F</kbd><span>Llevarte la comida a la boca (3 mordidas)</span><kbd>Espacio</kbd><span>Saltar</span><kbd>I · R</kbd><span>Inventario · Rumores</span><kbd>Esc</kbd><span>Cerrar ventana o liberar el ratón</span></div>
+  <div class="sect">Quest 3 / 3S (versión alojada, botón «Entrar en VR»)</div>
+  <div class="keys"><kbd>Stick izq.</kbd><span>Moverte</span><kbd>Stick der.</kbd><span>Girar por pasos</span><kbd>Gatillo der.</kbd><span>Apuntar y usar (hablar, recoger, botones de los paneles)</span><kbd>Gatillo izq.</kbd><span>Canalizar hechizo; suelta lanzando la mano. Di el nombre mientras canalizas</span><kbd>X</kbd><span>Cambiar de hechizo</span><kbd>A</kbd><span>Saltar (en modo de pie también puedes saltar de verdad)</span><kbd>Muñeca izq.</kbd><span>Panel: comer, descansar, modo sentado</span><kbd>Comer</kbd><span>Lleva la comida de la mano derecha a la boca</span><kbd>Forjar</kbd><span>Golpea el yunque con la mano derecha cuando brille el anillo</span></div>
+  <div class="sect">Hand tracking (sin mandos)</div>
+  <div class="keys"><kbd>Pellizco der.</kbd><span>Apunta con la mano y pellizca para usar: hablar, recoger, botones</span><kbd>Pellizco der. al suelo</kbd><span>Mantén y suelta para moverte allí</span><kbd>Pellizco izq.</kbd><span>Canaliza el hechizo; suelta mientras lanzas la mano</span><kbd>Mano izq. abajo</kbd><span>Aparece tu panel: girar, saltar, comer, hechizo, descansar</span><kbd>Comer / forjar</kbd><span>Igual que con mandos: la comida o el martillo van en tu mano derecha</span></div>
+  <p class="hint">Dentro de Claude no hay acceso al micrófono ni a WebXR; esas dos funciones se activan al abrir este mismo archivo alojado en una dirección https desde el navegador del visor.</p>`); }
+
+/* ================= DESKTOP INPUT ================= */
+const KEYS={};
+let lockedLook=false,dragLook=false,lastX=0,lastY=0;
+addEventListener('keydown',e=>{
+  if(!started) return;
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){ if(e.key==='Enter'&&e.target.id==='dlgInput') sayFree(e.target.value); if(e.key==='Escape') e.target.blur(); return; }
+  const k=e.key.toLowerCase(); KEYS[k]=true; initAudio();
+  if(FORGE.active&&!XR.on){ if(k===' '){ e.preventDefault(); forgeDesktopHit(); } if(k==='escape'){ FORGE.active=false; $('#forge').hidden=true; addItem('hierro'); toast('Dejaste la forja. Recuperaste el mineral.'); } return; }
+  if(k==='escape'){ if(!$('#panel').hidden) closePanel(); else if(DLG.npc) closeDialog(); return; }
+  if(DLG.npc) return;
+  if(k==='e'){ if(curInter) curInter.act(); }
+  else if(k==='1'||k==='2'||k==='3'){ setSpell(+k-1); castFromCamera(); }
+  else if(k===' '){ e.preventDefault(); jump(); }
+  else if(k==='f'){ eatDesktop(); }
+  else if(k==='i'){ $('#panel').hidden?openInventory():closePanel(); }
+  else if(k==='r'){ $('#panel').hidden?openRumors():closePanel(); }
+  else if(k==='q'&&!e.repeat){ voiceChannel(true); }
+});
+addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); KEYS[k]=false; if(k==='q') voiceChannel(false); });
+canvas.addEventListener('mousedown',e=>{
+  if(!started||XR.on) return; initAudio(); canvas.focus();
+  if(FORGE.active){ forgeDesktopHit(); return; }
+  if(document.pointerLockElement===canvas){ if(e.button===0&&!DLG.npc) castFromCamera(); return; }
+  dragLook=true; lastX=e.clientX; lastY=e.clientY;
+  if(!DLG.npc&&$('#panel').hidden&&!isTouch){ try{ const r=canvas.requestPointerLock(); if(r&&r.catch) r.catch(()=>{}); }catch(err){} }
+});
+addEventListener('mouseup',()=>dragLook=false);
+addEventListener('mousemove',e=>{
+  if(!started||XR.on) return;
+  let dx=0,dy=0; if(document.pointerLockElement===canvas){ dx=e.movementX; dy=e.movementY; } else if(dragLook){ dx=e.clientX-lastX; dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; } else return;
+  P.yaw-=dx*.0025; P.pitch=clamp(P.pitch-dy*.0022,-1.35,1.35);
+});
+// touch
+const isTouch=matchMedia('(pointer:coarse)').matches;
+const JOY={x:0,y:0,id:null};
+if(isTouch){
+  const joy=$('#joy'),knob=$('#knob');
+  joy.addEventListener('pointerdown',e=>{ JOY.id=e.pointerId; joy.setPointerCapture(e.pointerId); moveJoy(e); });
+  joy.addEventListener('pointermove',e=>{ if(e.pointerId===JOY.id) moveJoy(e); });
+  const endJ=()=>{ JOY.id=null; JOY.x=JOY.y=0; knob.style.left='40px'; knob.style.top='40px'; };
+  joy.addEventListener('pointerup',endJ); joy.addEventListener('pointercancel',endJ);
+  function moveJoy(e){ const r=joy.getBoundingClientRect(); let x=(e.clientX-r.left-60)/50,y=(e.clientY-r.top-60)/50; const l=Math.hypot(x,y); if(l>1){x/=l;y/=l;} JOY.x=x; JOY.y=y; knob.style.left=(40+x*40)+'px'; knob.style.top=(40+y*40)+'px'; }
+  let lookId=null,lx=0,ly=0;
+  canvas.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch') return; lookId=e.pointerId; lx=e.clientX; ly=e.clientY; });
+  canvas.addEventListener('pointermove',e=>{ if(e.pointerId!==lookId) return; P.yaw-=(e.clientX-lx)*.005; P.pitch=clamp(P.pitch-(e.clientY-ly)*.004,-1.3,1.3); lx=e.clientX; ly=e.clientY; });
+  canvas.addEventListener('pointerup',e=>{ if(e.pointerId===lookId) lookId=null; });
+  $('#tbAct').onclick=()=>{ initAudio(); if(FORGE.active) forgeDesktopHit(); else if(curInter) curInter.act(); };
+  $('#tbCast').onclick=()=>{ initAudio(); castFromCamera(); };
+  $('#tbJump').onclick=()=>jump();
+  $('#tbEat').onclick=()=>eatDesktop();
+}
+function setSpell(i){ P.spell=i; renderHotbar(); }
+function castFromCamera(){ camera.getWorldDirection(tmpA); camera.getWorldPosition(tmpB); tmpB.addScaledVector(tmpA,.7); tmpB.y-=.15; if(castSpell(P.spell,tmpB,tmpA,1)) FPA.castT=.35; }
+function jump(){ if(P.grounded&&P.st>=8&&P.alive){ P.vy=6.2; P.grounded=false; P.st-=8; SFX.jump(); } }
+let voiceOn=false;
+function voiceChannel(on){
+  if(!MIC.ok){ if(on) toast(SRC?'El micrófono no está disponible en esta vista.':'Este navegador no reconoce voz. Usa 1, 2 o 3.','bad'); return; }
+  if(on&&!voiceOn){ voiceOn=true; $('#tMic').setAttribute('aria-pressed','true'); toast('Canalizando… di «bola de fuego», «escudo» o «curar».');
+    listen((txt,fin)=>{ const i=spellFromSpeech(txt); if(i>=0&&voiceOn){ voiceOn=false; stopListen(); setSpell(i); if(XR.on) castVRFromLeft(1.1); else castFromCamera(); toast(`«${txt.trim()}» → ${SPELLS[i].name}`); } },()=>{ voiceOn=false; $('#tMic').setAttribute('aria-pressed','false'); }); }
+  else if(!on&&voiceOn){ setTimeout(()=>{ stopListen(); },600); }
+}
+function refreshMicUI(){ $('#tMic').hidden=!MIC.ok; $('#dlgMic').hidden=!MIC.ok; }
+$('#tMic').onclick=()=>{ voiceChannel(!voiceOn); };
+$('#dlgMic').onclick=()=>{ if(!MIC.ok) return; $('#dlgInput').placeholder='Escuchando…'; listen((t,fin)=>{ $('#dlgInput').value=t; if(fin){ sayFree(t); } },()=>{ $('#dlgInput').placeholder='Escribe lo que le dices…'; }); };
+$('#dlgSend').onclick=()=>sayFree($('#dlgInput').value);
+$('#forge').addEventListener('mousedown',e=>{ if(FORGE.active&&!XR.on){ e.preventDefault(); forgeDesktopHit(); } });
+$('#tInv').onclick=openInventory; $('#tRum').onclick=openRumors; $('#tSet').onclick=openSettings; $('#tHelp').onclick=openHelp;
+$('#tRest').onclick=()=>{ advance(60); toast(`Descansaste una hora. Son las ${timeStr()}.`); P.st=P.maxSt; };
+$('#tQuest').onclick=()=>{ $('#hud').classList.toggle('showq'); };
+
+/* ================= HOTBAR ================= */
+function renderHotbar(){ $('#hotbar').innerHTML=SPELLS.map((s,i)=>`<button class="slot" aria-pressed="${P.spell===i}" data-sp="${i}"><span class="k">${i+1}</span><span class="ic" style="background:${s.css};box-shadow:0 0 10px ${s.css}"></span>${s.name}<span class="mp">${s.mp} MP</span></button>`).join('');
+  $('#hotbar').querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{ setSpell(+b.dataset.sp); castFromCamera(); }); }
+
+/* ================= WEBXR ================= */
+const XR={on:false,snap:30,vignette:true,snapLatch:false,prevHeadY:0,headVY:0};
+const HANDS={left:{},right:{}};
+const rayLine=new T.Line(new T.BufferGeometry().setFromPoints([V3(),new T.Vector3(0,0,-1)]),new T.LineBasicMaterial({color:0x9fe0ff,transparent:true,opacity:.7}));
+const rayDot=new T.Mesh(new T.SphereGeometry(.02,8,6),new T.MeshBasicMaterial({color:0xffffff})); rayDot.visible=false; scene.add(rayDot);
+const vrLabel=makeLabel('',{sx:1.2,font:'600 36px Barlow, sans-serif',depthTest:false}); vrLabel.renderOrder=30; vrLabel.visible=false; scene.add(vrLabel);
+const vignette=new T.Mesh(new T.RingGeometry(.22,1.2,40),new T.MeshBasicMaterial({color:0,transparent:true,opacity:0,depthTest:false,depthWrite:false})); vignette.position.z=-.3; vignette.renderOrder=50; vignette.visible=false; camera.add(vignette);
+const chargeOrb=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,blending:T.AdditiveBlending,depthWrite:false,fog:false})); chargeOrb.scale.set(.18,.18,1); chargeOrb.visible=false;
+const hammer=new T.Group(); mesh(new T.CylinderGeometry(.016,.018,.34,8),M('#5b3f28'),0,-.05,0,hammer); mesh(new T.BoxGeometry(.13,.065,.065),M('#5a5a5e'),0,.12,0,hammer); hammer.rotation.x=-Math.PI/2.2; hammer.visible=false;
+const hammerHead=new T.Object3D(); hammerHead.position.set(0,.12,0); hammer.add(hammerHead);
+// Where held things attach: the controller grip, or the palm of a tracked hand.
+const PALM={left:new T.Object3D(),right:new T.Object3D()}; scene.add(PALM.left); scene.add(PALM.right);
+function holder(h){ const st=HANDS[h]; return st.isHand?PALM[h]:st.grip; }
+function attachToHand(h,obj,x=0,y=0,z=0){ const hd=holder(h); if(!hd) return false; hd.add(obj); obj.position.set(x,y,z); return true; }
+function reattachAll(){ if(hammer.visible) attachToHand('right',hammer); if(EAT.held&&XR.on) attachToHand('right',EAT.held,0,-.02,-.06); attachToHand('left',chargeOrb,0,.05,-.06); }
+function hammerOn(on){ hammer.visible=on; anvilRing.material.opacity=on?.8:0; if(on) attachToHand('right',hammer); }
+function makeGlove(){ const g=new T.Group(); const sk=M(P.look.skin); mesh(new T.BoxGeometry(.075,.025,.09),sk,0,0,.02,g); for(let i=0;i<4;i++) mesh(new T.BoxGeometry(.016,.018,.06),sk,-.027+i*.018,0,-.045,g); mesh(new T.BoxGeometry(.018,.018,.05),sk,.045,0,.005,g).rotation.y=-.6; g.traverse(o=>o.castShadow=false); return g; }
+const jointGeo=new T.SphereGeometry(1,8,6);
+for(let i=0;i<2;i++){
+  const ray=renderer.xr.getController(i), grip=renderer.xr.getControllerGrip(i), hand=renderer.xr.getHand(i);
+  rig.add(ray); rig.add(grip); rig.add(hand);
+  ray.addEventListener('connected',e=>{ const h=e.data.handedness; if(!HANDS[h]) return; const isHand=!!e.data.hand;
+    HANDS[h]=Object.assign(HANDS[h]||{},{ray,grip,hand,src:e.data,isHand});
+    if(!grip.userData.glove){ grip.userData.glove=makeGlove(); grip.add(grip.userData.glove); }
+    grip.userData.glove.visible=!isHand; hand.visible=isHand;
+    if(h==='right') ray.add(rayLine);
+    reattachAll();
+    if(XR.on) vrToast(isHand?'Manos detectadas. Pellizca para usar; pellizca el suelo y suelta para moverte.':'Mandos detectados.');
+  });
+  ray.addEventListener('disconnected',()=>{ ['left','right'].forEach(h=>{ if(HANDS[h].ray===ray) HANDS[h]={}; }); });
+}
+// Tracked hands: give every joint a small sphere (three.js creates joints lazily) and follow the palm.
+function updHandModels(){
+  for(const h of ['left','right']){ const st=HANDS[h]; if(!st.isHand||!st.hand) continue; const j=st.hand.joints;
+    for(const name in j){ const jt=j[name]; if(!jt.userData.ball){ const b=new T.Mesh(jointGeo,M(P.look.skin)); b.scale.setScalar(Math.max(.006,(jt.jointRadius||.008)*.95)); b.castShadow=false; jt.add(b); jt.userData.ball=b; } }
+    const palm=j['middle-finger-metacarpal']||j['wrist']; if(palm&&palm.visible){ palm.matrixWorld.decompose(PALM[h].position,PALM[h].quaternion,tmpC); } }
+}
+const _jp={};
+function jointPos(j,n){ return (j[n]&&j[n].visible)?j[n].getWorldPosition(_jp[n]||(_jp[n]=V3())):null; }
+function handGest(st){ const j=st.hand&&st.hand.joints; if(!j) return null;
+  const th=jointPos(j,'thumb-tip'),ix=jointPos(j,'index-finger-tip'),wr=jointPos(j,'wrist'); if(!th||!ix||!wr) return null;
+  const pinchD=th.distanceTo(ix); let f=0,c=0; for(const n of ['middle-finger-tip','ring-finger-tip','pinky-finger-tip']){ const q=jointPos(j,n); if(q){ f+=q.distanceTo(wr); c++; } }
+  return {pinchD,fistD:c?f/c:1}; }
+const PANELS=[];
+function makePanel(wPx,hPx,wM){ const c=document.createElement('canvas'); c.width=wPx; c.height=hPx; const ctx=c.getContext('2d'); const tex=new T.CanvasTexture(c); tex.minFilter=T.LinearFilter;
+  const m=new T.Mesh(new T.PlaneGeometry(wM,wM*hPx/wPx),new T.MeshBasicMaterial({map:tex,transparent:true,fog:false,side:T.DoubleSide,depthTest:false})); m.renderOrder=40; m.visible=false;
+  const p={c,ctx,tex,mesh:m,buttons:[],hover:-1}; m.userData.panel=p; PANELS.push(p); return p; }
+function panelBg(p){ const {ctx,c}=p; ctx.clearRect(0,0,c.width,c.height); ctx.fillStyle='rgba(10,22,32,.92)'; rrect(ctx,4,4,c.width-8,c.height-8,18); ctx.fill(); ctx.strokeStyle='rgba(120,196,226,.6)'; ctx.lineWidth=3; ctx.stroke(); }
+function panelBtn(p,b,i){ const {ctx}=p; ctx.fillStyle=i===p.hover?'rgba(233,180,76,.35)':b.primary?'rgba(233,180,76,.85)':'rgba(108,201,230,.14)'; rrect(ctx,b.x,b.y,b.w,b.h,10); ctx.fill(); ctx.strokeStyle='rgba(120,196,226,.6)'; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle=b.primary&&i!==p.hover?'#1b1305':'#e4eff3'; ctx.font='600 26px Barlow, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; const t=wrapText(ctx,b.t,b.w-16)[0]; ctx.fillText(t,b.x+b.w/2,b.y+b.h/2); }
+const dlgPanel=makePanel(1024,640,1.1); scene.add(dlgPanel.mesh);
+const wristPanel=makePanel(512,600,.26); scene.add(wristPanel.mesh);
+const toastPanel=makePanel(1024,140,.9); camera.add(toastPanel.mesh); toastPanel.mesh.position.set(0,.32,-1.2); let vrToastT=0;
+function vrToast(msg){ const p=toastPanel; panelBg(p); p.ctx.fillStyle='#e4eff3'; p.ctx.font='500 32px Barlow, sans-serif'; p.ctx.textAlign='center'; p.ctx.textBaseline='middle'; wrapText(p.ctx,msg,960).slice(0,2).forEach((l,i,a)=>p.ctx.fillText(l,512,70+(i-(a.length-1)/2)*40)); p.tex.needsUpdate=true; p.mesh.visible=true; vrToastT=4.5; }
+function showVRDialog(){ camera.getWorldDirection(tmpA); tmpA.y=0; tmpA.normalize(); camera.getWorldPosition(tmpB); dlgPanel.mesh.position.copy(tmpB).addScaledVector(tmpA,1.15); dlgPanel.mesh.position.y=tmpB.y-.15; dlgPanel.mesh.lookAt(tmpB.x,dlgPanel.mesh.position.y,tmpB.z); dlgPanel.mesh.visible=true; drawVRDialog(); }
+function hideVRDialog(){ dlgPanel.mesh.visible=false; }
+function drawVRDialog(){ if(!XR.on||!DLG.npc) return; const p=dlgPanel,{ctx}=p,n=DLG.npc; panelBg(p);
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#e9b44c'; ctx.font='40px "Marcellus SC", serif'; ctx.fillText(n.name,36,64); ctx.fillStyle='#93aeba'; ctx.font='500 24px Barlow, sans-serif'; ctx.fillText(`${n.role} · afinidad ${Math.round(n.aff)}`,36,96);
+  ctx.fillStyle='#e4eff3'; ctx.font='500 30px Barlow, sans-serif'; const txt=$('#dlgText').textContent; wrapText(ctx,txt,950).slice(0,6).forEach((l,i)=>ctx.fillText(l,36,150+i*38));
+  p.buttons=[]; let opts;
+  if(DLG.offer){ const d=QT[DLG.offer]; ctx.fillStyle='#e9b44c'; ctx.font='600 28px Barlow, sans-serif'; ctx.fillText('Misión: '+d.title+`  (${d.reward.gold} monedas · ${d.reward.xp} XP)`,36,400); opts=[{t:'Aceptar misión',f:()=>{acceptQuest(DLG.offer);showOffer(null);},primary:true},{t:'Ahora no',f:()=>showOffer(null)}]; }
+  else opts=dialogOptions().map(o=>({t:o.t,f:()=>chooseOption(o),primary:o.i==='deliver'}));
+  if(MIC.ok&&!DLG.offer) opts.splice(opts.length-1,0,{t:'Hablar con mi voz',f:()=>{ listen((t,fin)=>{ if(fin) sayFree(t); }); vrToast('Escuchando… habla ahora.'); }});
+  opts.forEach((o,i)=>{ const col=i%2,row=Math.floor(i/2); const b={x:36+col*486,y:430+row*64,w:466,h:54,t:o.t,f:o.f,primary:o.primary}; p.buttons.push(b); panelBtn(p,b,i); });
+  p.tex.needsUpdate=true; }
+let wristT=0;
+function drawWrist(){ const p=wristPanel,{ctx}=p; panelBg(p); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#e4eff3'; ctx.font='600 28px Barlow, sans-serif'; ctx.fillText(`${timeStr()} · Día ${W.day}`,24,44); ctx.fillStyle=portalOpen()?'#6cc9e6':'#93aeba'; ctx.font='500 20px Barlow, sans-serif'; ctx.fillText(`Luna ${moonName()} · portal ${portalOpen()?'abierto':'cerrado'}`,24,72);
+  [['Vida',P.hp/P.maxHp,'#e0625b'],['Maná',P.mp/P.maxMp,'#5d8dff'],['Energía',P.st/P.maxSt,'#7ccf8a']].forEach(([l,v,c],i)=>{ ctx.fillStyle='rgba(0,0,0,.4)'; rrect(ctx,24,90+i*26,464,14,7); ctx.fill(); ctx.fillStyle=c; rrect(ctx,24,90+i*26,Math.max(14,464*clamp(v,0,1)),14,7); ctx.fill(); });
+  const q=QUESTS[0]; ctx.fillStyle='#93aeba'; ctx.font='500 20px Barlow, sans-serif'; ctx.fillText(q?`${QT[q.id].title} ${qProgress(q)}/${QT[q.id].need}`:`${P.gold} monedas · Nivel ${P.lvl}`,24,186);
+  p.buttons=[
+    {t:'Hechizo: '+SPELLS[P.spell].name,f:()=>setSpell((P.spell+1)%3)},
+    {t:'Comer',f:()=>{ const k=foodKey(); if(k){startHold(k); vrToast('Lleva la comida a tu boca.');} else vrToast('No tienes comida.'); }},
+    {t:'◀ Girar',f:()=>snapTurn(1)},{t:'Girar ▶',f:()=>snapTurn(-1)},
+    {t:'Saltar',f:()=>jump()},{t:'Descansar 1 h',f:()=>{ advance(60); vrToast('Descansaste. Son las '+timeStr()+'.'); }},
+    {t:P.seated?'Sentado: sí':'Sentado: no',f:toggleSeated},{t:DLG.npc?'Cerrar diálogo':'Rumores: '+W.rumorLog.length,f:()=>{ if(DLG.npc) closeDialog(); else vrToast(W.rumorLog[0]?W.rumorLog[0].text:'Aún no oyes rumores.'); }}];
+  p.buttons.forEach((b,i)=>{ Object.assign(b,{x:24+(i%2)*236,y:204+Math.floor(i/2)*96,w:226,h:84}); panelBtn(p,b,i); }); p.tex.needsUpdate=true; }
+function toggleSeated(){ P.seated=!P.seated; if(P.seated&&XR.on) P.seatOffset=clamp(1.62-camera.position.y,0,.95); toast(P.seated?'Modo sentado: la altura se compensa. Salta con A o desde la muñeca.':'Modo de pie: puedes saltar de verdad.'); }
+function snapTurn(sign){ const ang=sign*XR.snap*Math.PI/180; camera.getWorldPosition(tmpA); rig.rotation.y+=ang; rig.updateMatrixWorld(true); camera.getWorldPosition(tmpC); rig.position.x+=tmpA.x-tmpC.x; rig.position.z+=tmpA.z-tmpC.z; XR.turnFlash=.6; }
+async function initXRButton(){
+  const b=$('#tVR'); try{ if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){ b.hidden=false; b.onclick=enterVR; } }catch(e){}
+}
+async function enterVR(){
+  try{ initAudio(); const s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','bounded-floor','hand-tracking']}); await renderer.xr.setSession(s);
+    XR.on=true; sun.castShadow=false; renderer.shadowMap.enabled=false; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; });
+    $('#hud').hidden=true; $('#dialog').hidden=true; closePanel(); avatar.head.visible=false; avatar.armL.visible=avatar.armR.visible=false;
+    rig.rotation.y=P.yaw; P.pitch=0; camera.position.set(0,0,0); camera.rotation.set(0,0,0);
+    s.addEventListener('end',()=>{ XR.on=false; renderer.shadowMap.enabled=true; sun.castShadow=true; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; }); $('#hud').hidden=false; avatar.head.visible=true; avatar.armL.visible=avatar.armR.visible=true; wristPanel.mesh.visible=false; vignette.visible=false; tpRing.visible=false; hideVRDialog(); rig.rotation.set(0,0,0); });
+    vrToast('Bienvenido a Valdeluz. Baja la mano izquierda para ver tu panel.');
+  }catch(e){ toast('No se pudo entrar en VR aquí. Abre la versión alojada en el navegador del Quest.','bad'); }
+}
+const raycaster=new T.Raycaster(); const rayM=new T.Matrix4();
+function readPad(h){ const st=HANDS[h]; const prev={t:st.trig,s:st.sq,a:st.a,b:st.b};
+  if(st.isHand){ const g=handGest(st);
+    if(g){ st.sq=st.sq?g.fistD<.11:g.fistD<.085; st.trig=!st.sq&&(st.trig?g.pinchD<.04:g.pinchD<.02); } else { st.trig=st.sq=false; }
+    st.ax=st.ay=0; st.a=st.b=false; }
+  else { const gp=st.src&&st.src.gamepad;
+    st.trig=!!(gp&&gp.buttons[0]&&gp.buttons[0].value>.6); st.sq=!!(gp&&gp.buttons[1]&&gp.buttons[1].value>.6);
+    st.ax=gp&&gp.axes.length>=4?gp.axes[2]:0; st.ay=gp&&gp.axes.length>=4?gp.axes[3]:0; st.a=!!(gp&&gp.buttons[4]&&gp.buttons[4].pressed); st.b=!!(gp&&gp.buttons[5]&&gp.buttons[5].pressed); }
+  st.trigDown=st.trig&&!prev.t; st.trigUp=!st.trig&&prev.t; st.aDown=st.a&&!prev.a; st.bDown=st.b&&!prev.b; st.sqDown=st.sq&&!prev.s;
+  const hd=holder(h); if(hd){ hd.getWorldPosition(tmpA); if(!st.pp) st.pp=V3().copy(tmpA); if(!st.vel) st.vel=V3(); st.vel.subVectors(tmpA,st.pp).divideScalar(Math.max(1e-3,XR.dt)).multiplyScalar(.5).add(st.vel.clone().multiplyScalar(.5)); st.pp.copy(tmpA); } }
+let channel=null;
+function castVRFromLeft(power){ const L=HANDS.left, hd=holder('left'); if(!hd||!L.ray) return; hd.getWorldPosition(tmpB); let dir; if(L.vel&&L.vel.length()>1.1) dir=L.vel.clone().normalize(); else { rayM.identity().extractRotation(L.ray.matrixWorld); dir=new T.Vector3(0,0,-1).applyMatrix4(rayM); } castSpell(P.spell,tmpB.clone().addScaledVector(dir,.15),dir,power); }
+// Hand-tracking locomotion: pinch the ground with the right hand, release to teleport.
+const tpRing=new T.Mesh(new T.RingGeometry(.22,.32,32).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:0x6cc9e6,transparent:true,opacity:.85,depthWrite:false})); tpRing.visible=false; scene.add(tpRing);
+let tp=null;
+function vrFrame(dt){
+  XR.dt=dt; rig.updateMatrixWorld(true); updHandModels();
+  const R=HANDS.right,L=HANDS.left; readPad('left'); readPad('right');
+  // locomotion (controllers: left stick)
+  camera.getWorldDirection(tmpB); tmpB.y=0; tmpB.normalize(); const rx=tmpB.z,rz=-tmpB.x;
+  let mx=0,mz=0; if(L.src&&!L.isHand&&!channel){ mx=tmpB.x*-L.ay+(-rx)*L.ax; mz=tmpB.z*-L.ay+(-rz)*L.ax; }
+  const ml=Math.hypot(mx,mz); const run=ml>.95&&P.st>1; const sp=(run?4.6:2.9)*(DLG.npc?0:1);
+  if(ml>.15&&P.alive){ rig.position.x+=mx*sp*dt; rig.position.z+=mz*sp*dt; if(run) P.st-=8*dt; }
+  vignette.visible=XR.vignette; vignette.material.opacity=XR.vignette?clamp((ml>.15?.55:0)+(XR.turnFlash||0),0,.75):0; XR.turnFlash=Math.max(0,(XR.turnFlash||0)-dt*4);
+  if(R.src&&!R.isHand){ if(Math.abs(R.ax)>.7&&!XR.snapLatch){ XR.snapLatch=true; snapTurn(-Math.sign(R.ax)); } if(Math.abs(R.ax)<.3) XR.snapLatch=false; }
+  rig.updateMatrixWorld(true); camera.getWorldPosition(tmpA);
+  const fp=V3().set(tmpA.x,0,tmpA.z); const before=fp.clone(); pushOut(fp,.3); rig.position.x+=fp.x-before.x; rig.position.z+=fp.z-before.z;
+  P.pos.x=fp.x; P.pos.z=fp.z;
+  // jump: A, wrist button, or a real hop when standing
+  const hy=camera.position.y; XR.headVY=lerp(XR.headVY,(hy-XR.prevHeadY)/Math.max(dt,1e-3),.5); XR.prevHeadY=hy;
+  if(R.aDown) jump(); else if(!P.seated&&XR.headVY>1.3&&P.grounded&&!DLG.npc) jump();
+  P.yaw=Math.atan2(-tmpB.x,-tmpB.z);
+  // spells: left trigger or left pinch = channel; release while swinging = throw. X cycles.
+  if(L.aDown){ setSpell((P.spell+1)%3); vrToast('Hechizo: '+SPELLS[P.spell].name); }
+  if(L.trigDown&&!DLG.npc&&!FORGE.active){ channel={t:0}; chargeOrb.visible=true; if(MIC.ok){ listen((txt)=>{ const i=spellFromSpeech(txt); if(i>=0&&channel){ setSpell(i); channel.voice=true; vrToast(`«${txt.trim()}» → ${SPELLS[i].name}`); } }); } }
+  if(channel){ channel.t+=dt; chargeOrb.material.color.setHex(SPELLS[P.spell].color); const s=.12+Math.min(channel.t,1.2)*.12+Math.sin(channel.t*20)*.01; chargeOrb.scale.set(s,s,1); }
+  if(L.trigUp&&channel){ const spd=L.vel?L.vel.length():0; let pw=.85+Math.min(channel.t,1)*.15; if(spd>2.4){ pw*=1.1; } if(channel.voice) pw*=1.05; stopListen(); if(channel.t>.15) castVRFromLeft(pw); channel=null; chargeOrb.visible=false; }
+  // wrist panel: shows when the left hand is lowered in front of you
+  const lh=holder('left'); camera.getWorldPosition(tmpB);
+  if(lh&&!channel){ lh.getWorldPosition(tmpA); const show=tmpA.y<tmpB.y-.22&&tmpA.distanceTo(tmpB)<.85; if(show!==wristPanel.mesh.visible){ wristPanel.mesh.visible=show; if(show) drawWrist(); } if(show){ wristPanel.mesh.position.copy(tmpA).y+=.15; wristPanel.mesh.lookAt(tmpB); } } else wristPanel.mesh.visible=false;
+  // pointing with the right ray (controller or hand)
+  let hitPanel=null,hitBtn=-1,target=null;
+  if(R.ray){ rayM.identity().extractRotation(R.ray.matrixWorld); raycaster.ray.origin.setFromMatrixPosition(R.ray.matrixWorld); raycaster.ray.direction.set(0,0,-1).applyMatrix4(rayM);
+    const o=raycaster.ray.origin,d=raycaster.ray.direction;
+    const vis=PANELS.filter(p=>p.mesh.visible&&p!==toastPanel).map(p=>p.mesh); const hits=raycaster.intersectObjects(vis,false);
+    const oldHover=PANELS.map(p=>p.hover); PANELS.forEach(p=>p.hover=-1);
+    if(hits.length){ const h=hits[0],p=h.object.userData.panel,x=h.uv.x*p.c.width,y=(1-h.uv.y)*p.c.height; hitPanel=p; hitBtn=p.buttons.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h); p.hover=hitBtn; rayDot.visible=true; rayDot.position.copy(h.point); rayLine.scale.z=h.distance; }
+    else { rayDot.visible=false; rayLine.scale.z=6;
+      let best=null,bd=1e9;
+      for(const it of INTER){ if(!it.ok()) continue; const p=it.pos(); tmpC.subVectors(p,o); const along=tmpC.dot(d); if(along<.2||along>9) continue; const perp=tmpC.addScaledVector(d,-along).length(); if(perp<.35+it.r*.15&&along<bd){ bd=along; best=it; } }
+      target=best; }
+    PANELS.forEach((p,i)=>{ if(p.hover!==oldHover[i]) p.dirty=true; });
+    PANELS.forEach(p=>{ if(p.dirty){ p.dirty=false; if(p===dlgPanel) drawVRDialog(); else if(p===wristPanel) drawWrist(); } });
+    if(target&&!tp){ const p=target.pos(); vrLabel.visible=true; vrLabel.userData.set(target.label()); vrLabel.position.copy(p).y+=.55; } else vrLabel.visible=false;
+    if(R.trigDown){ initAudio();
+      if(hitPanel&&hitBtn>=0){ SFX.ui(); hitPanel.buttons[hitBtn].f(); if(hitPanel===wristPanel) drawWrist(); }
+      else if(target&&!DLG.npc){ target.act(); }
+      else if(R.isHand&&!hitPanel&&!DLG.npc&&!EAT.held&&!FORGE.active) tp={ok:false,pt:V3()}; }
+    if(tp){ if(d.y<-.05){ const k=(P.pos.y-o.y)/d.y; const pt=tp.pt.copy(o).addScaledVector(d,k); const dist=Math.hypot(pt.x-P.pos.x,pt.z-P.pos.z);
+        if(dist<9){ pushOut(pt,.3); pt.y=pt.x>250?0:terrainH(pt.x,pt.z); tp.ok=true; tpRing.visible=true; tpRing.position.copy(pt).y+=.03; } else { tp.ok=false; tpRing.visible=false; } } else { tp.ok=false; tpRing.visible=false; }
+      if(R.trigUp){ if(tp.ok){ teleportTo(tp.pt); XR.turnFlash=.7; SFX.jump(); } tp=null; tpRing.visible=false; } }
+    if(R.bDown&&DLG.npc) closeDialog();
+  }
+  // eating: bring the food in your right hand to your mouth
+  if(EAT.held&&holder('right')){ EAT.held.getWorldPosition(tmpC); camera.getWorldPosition(tmpA); camera.getWorldDirection(tmpB); tmpA.addScaledVector(tmpB,.05); tmpA.y-=.07; if(tmpC.distanceTo(tmpA)<.16) bite(); }
+  // forging: swing the hammer in your right hand onto the anvil
+  if(FORGE.active){ FORGE.vrPulse+=dt; const ph=(Math.sin(FORGE.vrPulse*TAU/1.3)+1)/2; anvilRing.material.opacity=.25+ph*.75; anvilRing.scale.setScalar(1+ph*.6);
+    if(holder('right')){ hammerHead.getWorldPosition(tmpC); if(!FORGE.prevH) FORGE.prevH=tmpC.clone(); const vy=(tmpC.y-FORGE.prevH.y)/Math.max(dt,1e-3); const dxz=Math.hypot(tmpC.x-anvilTop.x,tmpC.z-anvilTop.z);
+      if(vy<-1&&tmpC.y<anvilTop.y+.06&&FORGE.prevH.y>=anvilTop.y+.06&&dxz<.35){ forgeHit(clamp(ph*(1+.15*jw('herrero'))+(tAct('Martillo Firme')?.05:0),0,1)); } FORGE.prevH.copy(tmpC); } }
+  wristT-=dt; if(wristT<=0&&wristPanel.mesh.visible){ wristT=.5; drawWrist(); }
+  if(vrToastT>0){ vrToastT-=dt; if(vrToastT<=0) toastPanel.mesh.visible=false; }
+}
+
+/* ================= MAIN LOOP ================= */
+let curInter=null,last=performance.now(),acc=0,hudT=0,saveT=20,creatorAng=0;
+function teleportTo(v){ if(XR.on){ camera.getWorldPosition(tmpA); rig.position.x+=v.x-tmpA.x; rig.position.z+=v.z-tmpA.z; } P.pos.set(v.x,(v.x>250?0:terrainH(v.x,v.z)),v.z); P.vy=0; }
+let portalCD=0;
+function loop(){
+  const now=performance.now(); let dt=Math.min(.05,(now-last)/1000); last=now; const t=now/1000;
+  if(started){
+    advance(dt); // 1 real second = 1 game minute
+    // regen & timers
+    P.mp=Math.min(P.maxMp,P.mp+dt*2.2*(tAct('Viajero Lunar')?1.5:1)); P.st=Math.min(P.maxSt,P.st+dt*(P.buffT>0?9:5));
+    if(P.buffT>0){ P.buffT-=dt; P.hp=Math.min(P.maxHp,P.hp+dt*1.2); } if(P.fireBuffT>0) P.fireBuffT-=dt;
+    if(P.shieldT>0){ P.shieldT-=dt; shieldMesh.visible=true; shieldMesh.position.copy(P.pos).setY(P.pos.y+1); shieldMesh.material.opacity=.12+Math.sin(t*6)*.04; } else shieldMesh.visible=false;
+    if(XR.on) vrFrame(dt);
+    else if(P.alive&&!FORGE.active){
+      let f=0,s=0; if(!DLG.npc&&$('#panel').hidden){ if(KEYS.w||KEYS.arrowup)f+=1; if(KEYS.s||KEYS.arrowdown)f-=1; if(KEYS.d||KEYS.arrowright)s+=1; if(KEYS.a||KEYS.arrowleft)s-=1; f-=JOY.y; s+=JOY.x; }
+      const l=Math.hypot(f,s); if(l>1){f/=l;s/=l;}
+      const run=KEYS.shift&&P.st>1&&l>.1; const sp=run?6.2:3.6; if(run) P.st-=10*dt;
+      const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),rx=Math.cos(P.yaw),rz=-Math.sin(P.yaw);
+      P.pos.x+=(fx*f+rx*s)*sp*dt; P.pos.z+=(fz*f+rz*s)*sp*dt; P.moveSpeed=l*sp;
+      pushOut(P.pos,.32);
+    }
+    // vertical
+    const g=P.pos.x>250?0:terrainH(P.pos.x,P.pos.z);
+    P.vy-=18*dt; P.pos.y+=P.vy*dt; if(P.pos.y<=g){ P.pos.y=g; P.vy=0; P.grounded=true; } else if(P.pos.y>g+.05) P.grounded=false;
+    if(P.pos.x>250&&Math.hypot(P.pos.x-RX,P.pos.z)>46){ const a=Math.atan2(P.pos.z,P.pos.x-RX); const nx=RX+Math.cos(a)*46,nz=Math.sin(a)*46; if(XR.on){ rig.position.x+=nx-P.pos.x; rig.position.z+=nz-P.pos.z; } P.pos.x=nx; P.pos.z=nz; }
+    if(Math.hypot(P.pos.x,P.pos.z)>150&&P.pos.x<250){ const a=Math.atan2(P.pos.z,P.pos.x),nx=Math.cos(a)*150,nz=Math.sin(a)*150; if(XR.on){ rig.position.x+=nx-P.pos.x; rig.position.z+=nz-P.pos.z; } P.pos.x=nx; P.pos.z=nz; }
+    if(XR.on){ rig.position.y=P.pos.y+(P.seated?P.seatOffset:0); }
+    else { rig.position.copy(P.pos); rig.rotation.y=P.yaw; const eye=P.look.height*.93;
+      camera.position.set(0,eye,0); camera.rotation.set(P.pitch,0,0); }
+    // avatar
+    avatar.g.position.copy(P.pos); avatar.g.rotation.y=P.yaw+Math.PI; avatar.g.visible=XR.on;
+    updFPArms(dt);
+    if(XR.on){ camera.getWorldDirection(tmpB); avatar.g.position.x-=tmpB.x*.18; avatar.g.position.z-=tmpB.z*.18; }
+    animHumanoid(avatar,dt,XR.on?0:(P.moveSpeed||0),t);
+    // eat animation (desktop)
+    if(EAT.cd>0) EAT.cd-=dt;
+    if(!XR.on&&EAT.held&&EAT.anim>0){ const prevA=EAT.anim; EAT.anim=Math.min(2,EAT.anim+dt*2.4); const k=Math.sin((EAT.anim-1)*Math.PI); if(EAT.held) EAT.held.position.set(lerp(.25,0,k),lerp(-.27,-.08,k),lerp(-.5,-.2,k)); if(EAT.anim>=1.45&&prevA<1.45) bite(); if(EAT.anim>=2) EAT.anim=0; }
+    // forge desktop marker
+    if(FORGE.active&&!XR.on){ FORGE.x+=FORGE.dir*FORGE.speed*dt; if(FORGE.x>1){FORGE.x=1;FORGE.dir=-1;} if(FORGE.x<0){FORGE.x=0;FORGE.dir=1;} drawForge(); }
+    // NPCs + chats
+    NPCS.forEach(n=>updNPC(n,dt,t));
+    for(let i=0;i<NPCS.length;i++) for(let j=i+1;j<NPCS.length;j++){ const a=NPCS[i],b=NPCS[j]; if(a.hidden||b.hidden||a.busy||b.busy) continue; if(a.pos.distanceTo(b.pos)<2.4&&(a.visiting===b||b.visiting===a||Math.random()<.004)) npcChat(a,b,t); }
+    updSlimes(dt); updShots(dt); updParts(dt); updShop(dt);
+    // respawning resources
+    apples.forEach(a=>{ if(a.t>0){ a.t-=dt; if(a.t<=0) a.m.visible=true; } });
+    sheaves.forEach(s=>{ if(s.t>0){ s.t-=dt; if(s.t<=0) s.g.visible=true; } });
+    ores.forEach(o=>{ if(W.oreT[o.id]>0){ W.oreT[o.id]-=dt; if(W.oreT[o.id]<=0) o.specks.visible=true; } });
+    if(!moonCrystal.visible&&W.crystalDay!==W.day) moonCrystal.visible=true;
+    moonCrystal.rotation.y+=dt; moonCrystal.position.y=1.4+Math.sin(t*1.5)*.15; sanctCrystal.rotation.y+=dt*.6;
+    // memory fragment
+    if(W.fragment){ W.fragment.mesh.rotation.y+=dt*2; if(P.pos.distanceTo(tmpA.copy(W.fragment.mesh.position).setY(P.pos.y))<1.3){ addXP(W.fragment.xp); toast(`Recuperaste tu fragmento de recuerdo (+${W.fragment.xp} XP).`,'gold'); SFX.heal(); scene.remove(W.fragment.mesh); W.fragment=null; } }
+    // portals
+    portalCD-=dt; portalU.t.value=t; ruinsU.t.value=t; portalU.on.value=lerp(portalU.on.value,portalOpen()?1:0,.05);
+    if(portalCD<=0&&portalOpen()&&Math.hypot(P.pos.x-PORTAL.x,P.pos.z-PORTAL.z)<1.5){ portalCD=3; fade(true); SFX.portal(); setTimeout(()=>{ teleportTo(new T.Vector3(RX,0,9)); fade(false); if(!P.ruinsSeen){ P.ruinsSeen=true; awardTitle('Viajero Lunar'); } toast('Ruinas Lunares. El portal de regreso está a tu espalda.'); },500); }
+    if(portalCD<=0&&Math.hypot(P.pos.x-RUINS_PORTAL.x,P.pos.z-RUINS_PORTAL.z)<1.5){ portalCD=3; fade(true); SFX.portal(); setTimeout(()=>{ teleportTo(new T.Vector3(PORTAL.x-3,0,PORTAL.z-3)); fade(false); },500); }
+    // interaction (desktop)
+    if(!XR.on){ curInter=null; if(P.alive&&!DLG.npc&&!FORGE.active){ camera.getWorldDirection(tmpB); tmpB.y=0; tmpB.normalize(); let bd=1e9;
+        for(const it of INTER){ if(!it.ok()) continue; const p=it.pos(); const dx=p.x-P.pos.x,dz=p.z-P.pos.z,d=Math.hypot(dx,dz); if(d>it.r) continue; const dot=(dx*tmpB.x+dz*tmpB.z)/(d||1); if(dot<.45&&d>1.2) continue; if(d<bd){bd=d;curInter=it;} } }
+      const pr=$('#prompt'); if(curInter){ pr.hidden=false; const lbl=curInter.label(); if(pr.dataset.l!==lbl){ pr.dataset.l=lbl; pr.innerHTML=`<kbd>${isTouch?'Usar':'E'}</kbd>${esc(lbl)}`; } } else pr.hidden=true; }
+    // markers
+    hudT-=dt; if(hudT<=0){ hudT=.25; updHUD(); NPCS.forEach(n=>{ const del=deliverable(n).length,off=offerable(n).length; n.marker.userData.set(del?'?':off?'!':'',del?'#7ccf8a':'#e9b44c'); n.marker.visible=!n.hidden&&(del||off)&&n.pos.distanceTo(P.pos)<40; }); }
+    saveT-=dt; if(saveT<=0){ saveT=20; saveGame(); }
+  } else {
+    // creator orbit
+    creatorAng+=dt*.25; const cx=0,cz=5.5; const wide=innerWidth>700;
+    rig.position.set(0,0,0); rig.rotation.set(0,0,0);
+    camera.position.set(cx+Math.sin(creatorAng)*3.2+(wide?-1.1:0),1.45,cz+Math.cos(creatorAng)*3.2); camera.lookAt(cx+(wide?-1.1:0)*.4,wide?1.05:.55,cz);
+    avatar.g.position.set(cx,0,cz); avatar.g.rotation.y=Math.sin(t*.5)*.4; avatar.g.visible=true; animHumanoid(avatar,dt,0,t);
+    NPCS.forEach(n=>updNPC(n,dt,t));
+  }
+  updSky(t);
+  water.rotation.y+=dt*.2;
+  forgeLight.intensity=1.2+Math.sin(t*13)*.2+Math.sin(t*7.3)*.15;
+  sky.position.copy(camera.getWorldPosition(tmpA)); stars.position.copy(tmpA);
+  renderer.render(scene,camera);
+}
+function updSky(t){
+  const m=(W.min%1440)/1440; const a=m*TAU-Math.PI/2; const sy=Math.sin(a);
+  const day=smooth(-.15,.25,sy), dusk=1-Math.abs(clamp(sy*3,-1,1));
+  const top=new T.Color(0x070b1c).lerp(new T.Color(0x4f8fd6),day).lerp(new T.Color(0x3b4a7a),dusk*.5*(1-day*.5));
+  const bot=new T.Color(0x16203a).lerp(new T.Color(0xbfe0f0),day).lerp(new T.Color(0xf0a060),dusk*.75);
+  skyU.top.value.copy(top); skyU.bot.value.copy(bot); scene.fog.color.copy(bot).lerp(top,.25);
+  if(P.pos.x>250){ skyU.top.value.set(0x0b0f2a); skyU.bot.value.set(0x2a3060); scene.fog.color.set(0x1a2040); }
+  const cx=P.pos.x,cz=P.pos.z;
+  if(sy>-.05){ sun.position.set(cx+Math.cos(a)*60,Math.max(sy,0.05)*80,cz+25); sun.color.set(0xfff1d6).lerp(new T.Color(0xffa060),dusk*.7); sun.intensity=.15+day*.85; }
+  else { sun.position.set(cx-Math.cos(a)*60,-sy*70,cz-20); sun.color.set(0x8fa6d8); sun.intensity=.22; }
+  sun.target.position.set(cx,0,cz);
+  hemi.intensity=.22+day*.5; hemi.color.set(0x7a8fc8).lerp(new T.Color(0xcfe6ff),day);
+  const night=1-day; nightMats.forEach(mm=>mm.emissiveIntensity=night*1.1); stars.material.opacity=night*.9;
+  moon.position.set(cx-Math.cos(a)*300,-sy*260+20,cz-120); moon.visible=sy<.1; moon.material.color.setScalar(.5+(1-Math.abs(moonPhase()-4)/4)*.5);
+}
+function updHUD(){
+  const pc=(v,m)=>clamp(v/m*100,0,100)+'%';
+  $('#hpB').style.width=pc(P.hp,P.maxHp); $('#mpB').style.width=pc(P.mp,P.maxMp); $('#stB').style.width=pc(P.st,P.maxSt); $('#xpB').style.width=pc(P.xp,P.lvl*100);
+  $('#hpT').textContent=Math.ceil(P.hp)+'/'+P.maxHp; $('#mpT').textContent=Math.floor(P.mp)+'/'+P.maxMp; $('#stT').textContent=Math.floor(P.st); $('#lvT').textContent=P.lvl; $('#xpT').textContent=P.xp+'/'+P.lvl*100;
+  $('#clockTime').textContent=timeStr(); $('#clockSub').textContent=`Día ${W.day} · Luna ${moonName()} · Pan ${breadCost()}`;
+  const pc2=$('#portalChip'); const o=portalOpen(); pc2.classList.toggle('on',o); pc2.textContent=o?'Portal abierto':'Portal: abre 19:00';
+  $('#gold').textContent=P.gold+' monedas';
+  const tl=$('#titleLine'); tl.hidden=!P.title; if(P.title) tl.textContent='«'+P.title+'»';
+  if(QUESTS.length) renderQuests();
+}
+
+/* ================= SAVE / LOAD ================= */
+function serialize(){ return {P:{name:P.name,look:P.look,cls:P.cls,sub:P.sub,pos:[P.pos.x,P.pos.y,P.pos.z],yaw:P.yaw,hp:P.hp,maxHp:P.maxHp,mp:P.mp,maxMp:P.maxMp,st:P.st,xp:P.xp,lvl:P.lvl,gold:P.gold,inv:P.inv,titles:P.titles,title:P.title,kills:P.kills,bestGrade:P.bestGrade,spell:P.spell,ruinsSeen:P.ruinsSeen,forgedOwn:P.forgedOwn,seated:P.seated},
+  W:{min:W.min,day:W.day,wheat:W.wheat,iron:W.iron,hoarding:W.hoarding,flags:W.flags,rumorLog:W.rumorLog,crystalDay:W.crystalDay},
+  Q:QUESTS,done:doneAt,stall:STALL.map(s=>({key:s.key,price:s.price})),npcs:NPCS.map(n=>({id:n.id,aff:n.aff,memory:n.memory,rumors:n.rumors}))}; }
+function saveGame(){ if(!started) return; try{ localStorage.setItem(SAVE_KEY,JSON.stringify(serialize())); }catch(e){} }
+function restore(s){ try{
+  Object.assign(P,s.P,{pos:new T.Vector3(...s.P.pos)}); if(!JOBS[P.cls]) P.cls='elementalista'; if(!JOBS[P.sub]||P.sub===P.cls) P.sub=P.cls==='herrero'?'cocinero':'herrero'; Object.assign(W,s.W); updPrices(); QUESTS=s.Q||[]; Object.assign(doneAt,s.done||{});
+  (s.stall||[]).forEach(x=>STALL.push({key:x.key,price:x.price})); stallMeshes();
+  (s.npcs||[]).forEach(d=>{ const n=npcById(d.id); if(n){ n.aff=d.aff; n.memory=d.memory||[]; n.rumors=d.rumors||[]; } });
+  NPCS.forEach(n=>{ n.place=null; const pl=schedPlace(n); const p=PLACES[pl].path; const l=p[p.length-1]; n.pos.set(l[0],0,l[1]); n.place=pl; n.path=[]; n.hidden=!!PLACES[pl].hide; });
+  return true; }catch(e){ return false; } }
+let savedGame=null; try{ const r=localStorage.getItem(SAVE_KEY); if(r) savedGame=JSON.parse(r); }catch(e){}
+if(window.claude&&window.claude.hot&&window.claude.hot.snapshot){ try{ window.claude.hot.snapshot(()=>({save:started?serialize():null})); }catch(e){} }
+
+/* ================= CREATOR ================= */
+const SKINS=['#f1c9a5','#e0b08a','#d9a07a','#b97a52','#8d5a3b','#5e3a26'];
+const HAIRS=['#1b1410','#3a2618','#8a5a2b','#d9b36a','#b23a2a','#e8e4dc','#4b6fb5'];
+const OUTFITS=['#3f6e8c','#7a3b3b','#4f6b3a','#6b4f8a','#b07a32','#2f3540'];
+function swatches(id,list,key){ const el=$(id); el.innerHTML=list.map(c=>`<button style="background:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${P.look[key]===c}"></button>`).join(''); el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ P.look[key]=b.dataset.c; swatches(id,list,key); buildAvatar(); SFX.ui(); }); }
+function jobCards(id,key,other){ const el=$(id), sec=key==='sub';
+  el.innerHTML=Object.entries(JOBS).map(([k,v])=>`<button class="card" data-k="${k}" aria-pressed="${P[key]===k}"><b>${v.name}</b><small>${v.kind}</small><small>${sec?v.s:v.p}</small></button>`).join('');
+  el.querySelectorAll('.card').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(P[other]===k) P[other]=P[key]; P[key]=k; renderJobs(); SFX.ui(); }); }
+function renderJobs(){ jobCards('#clsCards','cls','sub'); jobCards('#subCards','sub','cls'); renderSyn(); }
+function renderSyn(){ const s=SYNERGY[synKey()]; const j=JOBS[P.cls];
+  $('#synBox').innerHTML=`<span class="eyebrow">${esc(j.name)} (principal) + ${esc(JOBS[P.sub].name)} (secundario)</span>${s?'<b>Sinergia:</b> '+esc(s):'Sin sinergia especial para esta pareja; cada trabajo aporta su efecto.'}<br><span class="mono" style="font-size:12px;color:var(--muted)">Vida ${j.hp+(P.sub==='guardian'?20:0)} · Maná ${j.mp}</span>`; }
+function initCreator(){
+  swatches('#swSkin',SKINS,'skin'); swatches('#swHair',HAIRS,'hair'); swatches('#swOutfit',OUTFITS,'outfit');
+  renderJobs();
+  $('#cName').value=P.name; $('#cHeight').value=P.look.height; $('#cBuild').value=P.look.build; $('#cHair').value=P.look.hairStyle; $('#cCape').value=P.look.cape?'si':'no';
+  $('#cHeight').oninput=e=>{ P.look.height=+e.target.value; $('#cHeightV').textContent=P.look.height.toFixed(2)+' m'; buildAvatar(); };
+  $('#cBuild').oninput=e=>{ P.look.build=+e.target.value; buildAvatar(); };
+  $('#cHair').onchange=e=>{ P.look.hairStyle=e.target.value; buildAvatar(); };
+  $('#cCape').onchange=e=>{ P.look.cape=e.target.value==='si'; buildAvatar(); };
+  $('#cName').oninput=e=>{ P.name=e.target.value.trim()||'Viajero'; };
+  $('#btnStart').onclick=()=>{ P.name=$('#cName').value.trim()||'Viajero'; const c=JOBS[P.cls]; P.maxHp=P.hp=c.hp+(P.sub==='guardian'?20:0); P.maxMp=P.mp=c.mp; beginGame(); };
+  if(savedGame){ $('#btnContinue').hidden=false; $('#btnContinue').onclick=()=>{ if(restore(savedGame)) beginGame(true); else toast('No se pudo leer la partida guardada.','bad'); }; }
+}
+function beginGame(continuing){
+  initAudio(); started=true; $('#creator').hidden=true; $('#hud').hidden=false; buildAvatar();
+  $('#hName').textContent=P.name; $('#hClass').textContent=JOBS[P.cls].name+' · '+JOBS[P.sub].name;
+  if(!continuing){ P.pos.set(0,0,7); P.yaw=0; }
+  if(isTouch) $('#touch').hidden=false;
+  renderHotbar(); renderQuests(); refreshMicUI(); initXRButton(); updateAiNote(); updHUD();
+  toast(continuing?`Bienvenido de vuelta, ${P.name}.`:`Bienvenido a Valdeluz, ${P.name}. Habla con los habitantes (E) y pregúntales si tienen trabajo.`);
+  if(!continuing) setTimeout(()=>toast(`El portal del noreste abre a las 19:00. Faltan ${Math.max(0,19*60-Math.floor(W.min))} minutos de juego (1 min = 1 s).`),5500);
+  canvas.focus();
+}
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) saveGame(); });
+
+/* ================= BOOT ================= */
+function boot(data){
+  buildAvatar(); initCreator(); updHUD(); renderer.setAnimationLoop(loop);
+  if(data&&data.save&&restore(data.save)) beginGame(true);
+}
+window.__tv={EAT,eatDesktop,bite,P,W,NPCS,QUESTS:()=>QUESTS,SLIMES,openDialog,castSpell,startForge,forgeDesktopHit,advance,INTER,npcChat,acceptQuest};
+if(window.claude&&window.claude.hot&&window.claude.hot.ready) window.claude.hot.ready(boot); else boot((window.claude&&window.claude.hot&&window.claude.hot.data)||{});
+})();
+</script>
+
+</body>
+</html>
