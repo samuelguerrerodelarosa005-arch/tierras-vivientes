@@ -118,20 +118,21 @@ func _terrain() -> void:
 
 func _ground_color(x: float, z: float) -> Color:
 	var nn := sin(x * 0.31) * sin(z * 0.27) * 0.5 + sin(x * 0.11 + z * 0.07) * 0.5
-	var r := 0.33 + nn * 0.05
-	var g := 0.5 + nn * 0.07
-	var b := 0.24 + nn * 0.03
+	# Variación terrosa sutil: verde menos saturado y pequeñas diferencias de suelo.
+	var r := 0.29 + nn * 0.055
+	var g := 0.40 + nn * 0.065
+	var b := 0.22 + nn * 0.035
 	var pd := 99.0
 	for s in PATHS:
 		pd = minf(pd, Util.seg_dist(x, z, s[0], s[1], s[2], s[3]))
 	var pm := 1.0 - Util.smooth(1.2, 2.4, pd)
-	r = lerpf(r, 0.52, pm); g = lerpf(g, 0.44, pm); b = lerpf(b, 0.31, pm)
+	r = lerpf(r, 0.43, pm); g = lerpf(g, 0.36, pm); b = lerpf(b, 0.27, pm)
 	if Util.in_field(x, z):
 		r = lerpf(r, 0.66, 0.8); g = lerpf(g, 0.58, 0.8); b = lerpf(b, 0.3, 0.8)
 	var rr := sqrt(x * x + z * z)
 	if rr > 60.0:
 		var k := Util.smooth(60.0, 140.0, rr)
-		r = lerpf(r, 0.27, k); g = lerpf(g, 0.42, k); b = lerpf(b, 0.25, k)
+		r = lerpf(r, 0.22, k); g = lerpf(g, 0.31, k); b = lerpf(b, 0.20, k)
 	return Color(r, g, b)
 
 
