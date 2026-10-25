@@ -248,6 +248,41 @@ func _process(delta: float) -> void:
 			toast3d.visible = false
 
 
+# ---------- trazo del gesto en PC ----------
+
+var trail_line: Line2D
+var hint_t := 0.0
+
+
+func gesture_trail_begin() -> void:
+	if trail_line == null:
+		trail_line = Line2D.new()
+		trail_line.width = 4.0
+		trail_line.default_color = Color(0.42, 0.79, 0.9, 0.9)
+		root.add_child(trail_line)
+	trail_line.clear_points()
+	trail_line.default_color = Color(0.91, 0.71, 0.3, 0.9) if not main.gestures.recording.is_empty() else Color(0.42, 0.79, 0.9, 0.9)
+	trail_line.visible = true
+
+
+func gesture_trail_add(p: Vector2) -> void:
+	if trail_line:
+		var c := root.get_viewport_rect().size * 0.5
+		trail_line.add_point(c + Vector2(p.x, -p.y) * 0.6)
+
+
+func gesture_trail_end() -> void:
+	if trail_line:
+		trail_line.visible = false
+
+
+func set_gesture_hint(text: String) -> void:
+	if refs.has("prompt"):
+		refs.prompt.visible = true
+		refs.prompt_lbl.text = text
+		hint_t = 1.5
+
+
 func flash_hurt() -> void:
 	hurt_rect.color.a = 0.35
 
@@ -463,6 +498,9 @@ func refresh_hud() -> void:
 
 func set_prompt(text: String) -> void:
 	if not refs.has("prompt"):
+		return
+	if hint_t > 0.0:
+		hint_t -= get_process_delta_time()
 		return
 	refs.prompt.visible = text != ""
 	refs.prompt_lbl.text = "[E]  " + text
@@ -698,7 +736,7 @@ func _build_menu() -> void:
 		return
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 6)
-	for t in [["inv", "Inventario"], ["quests", "Misiones"], ["rumors", "Rumores"], ["titles", "Títulos"], ["settings", "Ajustes"]]:
+	for t in [["inv", "Inventario"], ["quests", "Misiones"], ["rumors", "Rumores"], ["titles", "Títulos"], ["gestos", "Gestos"], ["settings", "Ajustes"]]:
 		tabs.add_child(B(t[1], func():
 			menu_tab = t[0]
 			mark("menu")
@@ -754,6 +792,8 @@ func _build_menu() -> void:
 				act.size_flags_horizontal = Control.SIZE_SHRINK_END
 				act.custom_minimum_size.x = 140
 				b.add_child(row([tl, act]))
+		"gestos":
+			_menu_gestures(b)
 		"settings":
 			_menu_settings(b)
 
@@ -767,6 +807,45 @@ func _setting_row(b: VBoxContainer, text: String, controls: Array) -> void:
 		c.custom_minimum_size.x = maxf(c.custom_minimum_size.x, 110)
 		items.append(c)
 	b.add_child(row(items))
+
+
+func _menu_gestures(b: VBoxContainer) -> void:
+	var g: Node = main.gestures
+	var how := "En VR: mantén el agarre (puño o botón lateral del mando) y traza el gesto en el aire; suelta para lanzarlo." if xr else "En PC: mantén el clic derecho y dibuja el gesto con el ratón; suelta para lanzarlo."
+	b.add_child(L("Graba un trazo y asígnale un hechizo o una función. Cada vez que lo repitas, se ejecuta. " + how, 15, C_MUTED))
+	if not g.recording.is_empty():
+		var rec := L("Grabando «%s»: muestra %d de %d." % [g.action_name(g.recording.action), g.recording.samples.size(), g.SAMPLES_NEEDED], 18, C_BRASS)
+		rec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cancel := B("Cancelar", func():
+			g.cancel_recording()
+			mark("menu")
+		, false, 42)
+		cancel.size_flags_horizontal = Control.SIZE_SHRINK_END
+		cancel.custom_minimum_size.x = 140
+		b.add_child(row([rec, cancel]))
+	b.add_child(section("Tus gestos"))
+	var mine := 0
+	for ge in g.gestures:
+		if ge.kind != ("vr" if xr else "pc"):
+			continue
+		mine += 1
+		var l := L("Gesto %d → %s · %d muestras" % [ge.id, g.action_name(ge.action), ge.samples.size()], 18, C_TEXT, false)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var gid: int = ge.id
+		var del := B("Borrar", func():
+			g.delete_gesture(gid)
+			mark("menu")
+		, false, 42)
+		del.size_flags_horizontal = Control.SIZE_SHRINK_END
+		del.custom_minimum_size.x = 140
+		b.add_child(row([l, del]))
+	if mine == 0:
+		b.add_child(L("Aún no tienes gestos grabados aquí.", 16, C_MUTED))
+	b.add_child(section("Grabar un gesto nuevo para…"))
+	var gr := grid(3)
+	for a in g.ACTIONS:
+		gr.add_child(B(a.name, g.start_recording.bind(a.id), false, 44))
+	b.add_child(gr)
 
 
 func _set_opt(key: String, value) -> void:
@@ -966,6 +1045,7 @@ func _build_help() -> void:
 		["PC", "WASD moverte · Mayús correr · ratón mirar (clic para fijarlo) · clic lanzar hechizo · 1/2/3 fuego, escudo, curar · E hablar/recoger/forjar · F comer · Espacio saltar · I inventario · R rumores · H controles · Esc cerrar"],
 		["Quest con mandos", "Stick izquierdo moverte · stick derecho girar · gatillo derecho apuntar y usar · gatillo izquierdo canalizar el hechizo y soltar lanzando la mano · X cambiar hechizo · A saltar · B cerrar diálogo · baja la mano izquierda para ver tu panel de muñeca"],
 		["Quest con las manos", "Pellizco derecho apuntando: usar · pellizca el suelo y suelta: moverte · pellizco izquierdo: canalizar hechizo, suelta mientras lanzas la mano · baja la mano izquierda: panel (girar, saltar, comer, menú)"],
+		["Gestos propios", "Menú → Gestos: elige qué quieres que haga y graba el trazo 3 veces. Luego, en VR mantén el agarre y dibújalo en el aire; en PC mantén el clic derecho y dibújalo con el ratón."],
 		["Comer y forjar", "La comida aparece en tu mano derecha: llévala a la boca, tres mordidas. En la forja, golpea el yunque con el martillo o pulsa el gatillo cuando la marca esté en la luz."],
 	]
 	for bl in blocks:

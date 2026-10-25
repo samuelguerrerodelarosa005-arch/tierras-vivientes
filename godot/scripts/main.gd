@@ -14,6 +14,7 @@ const Slime = preload("res://scripts/slime.gd")
 const UI = preload("res://scripts/ui.gd")
 const Dialogue = preload("res://scripts/dialogue.gd")
 const Panel3D = preload("res://scripts/panel3d.gd")
+const Gestures = preload("res://scripts/gestures.gd")
 
 const ZONES := [{"x": -32.0, "z": 14.0, "r": 7.0, "n": 3}, {"x": 54.0, "z": 4.0, "r": 12.0, "n": 5}]
 const RESPAWN := Vector3(0, 0, -17.2)
@@ -24,6 +25,8 @@ var world: Node3D
 var player: CharacterBody3D
 var ui: CanvasLayer
 var dialogue: Node
+var gestures: Node
+var mouse_trail := Vector2.ZERO
 var avatar: Node3D
 var npcs: Array = []
 var slimes: Array = []
@@ -105,6 +108,9 @@ func _ready() -> void:
 	ui.main = self
 	add_child(ui)
 	ui.setup(xr)
+	gestures = Gestures.new()
+	gestures.main = self
+	add_child(gestures)
 	dialogue = Dialogue.new()
 	dialogue.main = self
 	add_child(dialogue)
@@ -449,6 +455,86 @@ func cycle_spell() -> void:
 	vr_toast("Hechizo: " + Game.SPELLS[Game.spell].name)
 
 
+# ---------- gestos personalizados ----------
+
+## Ejecuta la acción asignada a un gesto.
+func do_action(a: String, src: String = "") -> void:
+	if not Game.alive:
+		return
+	if a.begins_with("spell:"):
+		var i := int(a.split(":")[1])
+		set_spell(i)
+		if xr:
+			var side := src if src in ["left", "right"] else "right"
+			var r: Array = player.ray(side)
+			var d: Vector3 = r[1]
+			cast_spell(i, player.holder(side).global_position + d * 0.2, d, 1.0)
+		else:
+			cast_from_camera()
+	else:
+		match a:
+			"eat":
+				var k := Game.food_key()
+				if k == "":
+					Game.say("No tienes comida.", "bad")
+				else:
+					start_hold(k)
+					if not xr:
+						eat.anim = 1.0
+			"jump":
+				jump()
+			"rest":
+				rest_hour()
+			"menu":
+				ui.open_menu("menu", "inv")
+			"rumors":
+				ui.open_menu("menu", "rumors")
+			"seated":
+				toggle_seated()
+			"turn_l":
+				if xr:
+					player.snap_turn(1.0)
+				else:
+					player.yaw += PI / 6.0
+			"turn_r":
+				if xr:
+					player.snap_turn(-1.0)
+				else:
+					player.yaw -= PI / 6.0
+	Sfx.play("pick", 1.3)
+	if src in ["left", "right"]:
+		buzz(src, 0.7, 0.06)
+	vr_toast("Gesto: " + gestures.action_name(a))
+	if not xr:
+		ui.set_gesture_hint("Gesto: " + gestures.action_name(a))
+
+
+func on_gesture_record_start(action: String) -> void:
+	ui.close_menu()
+	if not xr and not smoke:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	var how := "mantén el agarre (puño o botón lateral) y traza el gesto en el aire" if xr else "mantén el clic derecho y dibuja el gesto con el ratón"
+	Game.say("Graba el gesto para «%s»: %s. Hazlo %d veces igual. Esc para cancelar." % [gestures.action_name(action), how, gestures.SAMPLES_NEEDED])
+
+
+func on_gesture_sample(n: int, need: int) -> void:
+	Sfx.play("pick")
+	Game.say("Muestra %d de %d. Repítelo otra vez." % [n, need])
+
+
+func on_gesture_saved(action: String, clash: String) -> void:
+	Sfx.play("level")
+	var warn := " Ojo: se parece a tu gesto de «%s»; si se confunden, bórralo y grábalo más distinto." % gestures.action_name(clash) if clash != "" else ""
+	Game.say("Gesto guardado: ahora hace «%s».%s" % [gestures.action_name(action), warn], "gold")
+	ui.mark("menu")
+
+
+func on_gesture_unknown() -> void:
+	vr_toast("Gesto no reconocido.")
+	if not xr:
+		ui.set_gesture_hint("Gesto no reconocido")
+
+
 func rest_hour() -> void:
 	Game.advance(60.0)
 	Game.st = Game.max_st
@@ -477,6 +563,22 @@ func on_dialog_close() -> void:
 func _unhandled_input(ev: InputEvent) -> void:
 	if xr or not Game.started:
 		return
+	# gestos con el ratón: mantener clic derecho y dibujar
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_RIGHT:
+		if ev.pressed and can_move():
+			gestures.begin("mouse")
+			mouse_trail = Vector2.ZERO
+			gestures.add_point(Vector3.ZERO)
+			ui.gesture_trail_begin()
+		elif not ev.pressed and gestures.capturing and gestures.source == "mouse":
+			ui.gesture_trail_end()
+			gestures.end()
+		return
+	if ev is InputEventMouseMotion and gestures.capturing and gestures.source == "mouse":
+		mouse_trail += Vector2(ev.relative.x, -ev.relative.y)
+		gestures.add_point(Vector3(mouse_trail.x, mouse_trail.y, 0))
+		ui.gesture_trail_add(mouse_trail)
+		return
 	if ev is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		player.yaw -= ev.relative.x * 0.0025
 		player.pitch = clampf(player.pitch - ev.relative.y * 0.0022, -1.35, 1.35)
@@ -493,7 +595,10 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey) or not ev.pressed or ev.echo:
 		return
 	if ev.is_action_pressed("ui_cancel"):
-		if forge.active:
+		if not gestures.recording.is_empty():
+			gestures.cancel_recording()
+			Game.say("Grabación de gesto cancelada.")
+		elif forge.active:
 			cancel_forge()
 		elif ui.is_open("menu"):
 			ui.close_menu()
@@ -1310,6 +1415,35 @@ func _notification(what: int) -> void:
 
 # ---------- prueba automática (godot --headless --path . -- --smoke) ----------
 
+func _feed_gesture(pts: Array) -> Dictionary:
+	gestures.begin("mouse")
+	for p in pts:
+		gestures.add_point(p)
+	return gestures.end()
+
+
+func _g_circle(start: float, noise: float) -> Array:
+	var out := []
+	for i in 48:
+		var a := start + i / 47.0 * TAU
+		out.append(Vector3(cos(a) * 120.0 + randf_range(-noise, noise), sin(a) * 120.0 + randf_range(-noise, noise), 0))
+	return out
+
+
+func _g_line(noise: float) -> Array:
+	var out := []
+	for i in 30:
+		out.append(Vector3(randf_range(-noise, noise), i * 8.0, 0))
+	return out
+
+
+func _g_zigzag() -> Array:
+	var out := []
+	for i in 40:
+		out.append(Vector3(i * 6.0, 80.0 if (i / 5) % 2 == 0 else -80.0, 0) + Vector3(0, (i % 5) * 4.0, 0))
+	return out
+
+
 func _wait(s: float) -> void:
 	await get_tree().create_timer(s).timeout
 
@@ -1429,6 +1563,31 @@ func _run_smoke() -> void:
 	Game.save_game()
 	var s := Game.load_save()
 	_check(s.has("p") and s.p.cls == "herrero", "guardar y leer la partida", fails)
+	# gestos personalizados
+	gestures.gestures = []
+	gestures.start_recording("spell:0")
+	for k in 3:
+		_feed_gesture(_g_circle(k * 0.08, 6.0))
+	_check(gestures.gestures.size() == 1 and gestures.recording.is_empty(), "grabar gesto: círculo → Bola de fuego", fails)
+	gestures.start_recording("jump")
+	for k in 3:
+		_feed_gesture(_g_line(6.0))
+	_check(gestures.gestures.size() == 2, "grabar gesto: línea hacia arriba → Saltar", fails)
+	Game.mp = Game.max_mp
+	var mp_g := Game.mp
+	var r1 := _feed_gesture(_g_circle(0.15, 10.0))
+	_check(r1.result == "match" and r1.action == "spell:0" and Game.mp < mp_g, "repetir el círculo lanza la Bola de fuego (%s)" % str(r1), fails)
+	var r2 := _feed_gesture(_g_line(10.0))
+	_check(r2.result == "match" and r2.action == "jump", "repetir la línea hace Saltar", fails)
+	var r3 := _feed_gesture(_g_zigzag())
+	_check(r3.result == "unknown", "un garabato distinto no se reconoce (%s)" % str(r3), fails)
+	gestures.save_all()
+	gestures.load_all()
+	_check(gestures.gestures.size() == 2, "los gestos se guardan en el dispositivo", fails)
+	ui.open_menu("menu", "gestos")
+	await _wait(0.2)
+	_check(ui.is_open("menu"), "pestaña Gestos del menú", fails)
+	ui.close_menu()
 	print("SMOKE: %s" % ("OK" if fails.is_empty() else "FALLOS: " + ", ".join(fails)))
 	get_tree().quit(0 if fails.is_empty() else 1)
 

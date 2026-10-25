@@ -88,7 +88,7 @@ func _ready() -> void:
 		origin.add_child(p)
 		palm[side] = p
 		pads[side] = {"hand": false, "trig": false, "grip": false, "stick": Vector2.ZERO, "a": false, "b": false,
-			"trig_down": false, "trig_up": false, "a_down": false, "b_down": false, "vel": Vector3.ZERO, "pp": Vector3.ZERO}
+			"trig_down": false, "trig_up": false, "grip_down": false, "grip_up": false, "a_down": false, "b_down": false, "vel": Vector3.ZERO, "pp": Vector3.ZERO}
 
 
 func setup(xr_on: bool) -> void:
@@ -416,6 +416,37 @@ func _fix_pose(c: XRController3D) -> void:
 			return
 
 
+var trail_t := 0.0
+
+
+## Punto del trazo medido respecto a la cabeza (girar el cuerpo no cambia el gesto).
+func gesture_point(side: String) -> Vector3:
+	var yaw_b := Basis(Vector3.UP, camera.global_rotation.y)
+	return yaw_b.inverse() * (holder(side).global_position - camera.global_position)
+
+
+func _gesture_input() -> void:
+	var g: Node = main.gestures
+	if g.capturing and g.source in SIDES:
+		var p: Dictionary = pads[g.source]
+		g.add_point(gesture_point(g.source))
+		trail_t -= get_process_delta_time()
+		if trail_t <= 0.0:
+			trail_t = 0.025
+			var col := Color(0.91, 0.71, 0.3) if not g.recording.is_empty() else Color(0.42, 0.79, 0.9)
+			Util.burst(main, holder(g.source).global_position, col, 1, 0.0, 0.6, 0.012, 1.0)
+		if p.grip_up:
+			g.end()
+		return
+	if main.dialogue.npc or main.forge.active or hover_host != null:
+		return
+	for side in SIDES:
+		if pads[side].grip_down:
+			g.begin(side)
+			main.buzz(side, 0.3, 0.02)
+			return
+
+
 ## Nodo donde se sujetan objetos: el mando o la palma de la mano.
 func holder(side: String) -> Node3D:
 	return palm[side] if pads[side].hand else ctrl[side]
@@ -424,6 +455,7 @@ func holder(side: String) -> Node3D:
 func _read_pad(side: String, delta: float) -> void:
 	var p: Dictionary = pads[side]
 	var prev_t: bool = p.trig
+	var prev_g: bool = p.grip
 	var prev_a: bool = p.a
 	var prev_b: bool = p.b
 	var was_hand: bool = p.hand
@@ -450,6 +482,8 @@ func _read_pad(side: String, delta: float) -> void:
 		p.a = c.is_button_pressed("ax_button")
 		p.b = c.is_button_pressed("by_button")
 	p.trig_down = p.trig and not prev_t
+	p.grip_down = p.grip and not prev_g
+	p.grip_up = prev_g and not p.grip
 	p.trig_up = prev_t and not p.trig
 	p.a_down = p.a and not prev_a
 	p.b_down = p.b and not prev_b
@@ -522,6 +556,8 @@ func xr_frame(delta: float) -> void:
 				cast_from_left(pw)
 			channel = {}
 			charge_orb.visible = false
+	# gestos personalizados: mantener el agarre (puño o botón lateral) y trazar
+	_gesture_input()
 	# panel de la muñeca
 	main.ui.update_wrist(holder("left"), camera, not channel.is_empty())
 	# apuntar con la derecha

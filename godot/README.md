@@ -14,7 +14,7 @@ modelos `.glb` (ver «Mejorar los gráficos»).
 3. Pulsa **F5**. Sin visor conectado arranca en modo PC.
 
 Controles de PC: WASD moverte · Mayús correr · clic para fijar el ratón y lanzar hechizos · 1/2/3 hechizos ·
-E usar · F comer · Espacio saltar · I inventario · R rumores · H controles · Esc cerrar.
+E usar · F comer · clic derecho + dibujar = gesto propio · Espacio saltar · I inventario · R rumores · H controles · Esc cerrar.
 
 ## 2. Probarlo en el visor desde el PC (más rápido para iterar)
 
@@ -48,7 +48,11 @@ Los nombres exactos de algunas opciones pueden variar un poco en la 4.8-beta.
 - **Mandos**: stick izquierdo moverte · stick derecho girar · gatillo derecho apuntar y usar · gatillo izquierdo
   canalizar hechizo y soltar lanzando la mano · X cambiar hechizo · A saltar (o salta de verdad de pie) · B cerrar diálogo.
 - **Manos**: pellizco derecho apuntando = usar · pellizca el suelo y suelta = moverte · pellizco izquierdo = hechizo ·
-  puño = agarre (reservado) · baja la mano izquierda = panel de muñeca (girar, saltar, comer, sentado, menú).
+  puño = trazar un gesto propio · baja la mano izquierda = panel de muñeca (girar, saltar, comer, sentado, menú).
+- **Gestos propios**: Menú → **Gestos** → elige qué quieres que haga (un hechizo, comer, saltar, descansar, abrir el menú,
+  girar…) y traza el gesto 3 veces. Después, mantén el **agarre** (puño o botón lateral del mando) y dibújalo en el aire:
+  se ejecuta. En PC funciona igual manteniendo el **clic derecho** y dibujando con el ratón. Hazlo siempre en el mismo
+  sentido y con la misma forma; el tamaño y hacia dónde mires no importan.
 - **Comer**: la comida aparece en tu mano derecha; llévala a la boca (3 mordidas).
 - **Forjar**: golpea el yunque con el martillo o pulsa el gatillo cuando la marca esté en la luz.
 
@@ -82,7 +86,7 @@ Cada parte del mundo está en una función de `scripts/world.gd` (`_bakery`, `_f
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 21 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, guardado
+godot --headless --path godot -- --smoke   # 28 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 ```
 
