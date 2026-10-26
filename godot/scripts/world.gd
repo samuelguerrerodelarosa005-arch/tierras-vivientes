@@ -141,7 +141,7 @@ func _ground_color(x: float, z: float) -> Color:
 func _house(cx: float, cz: float, w: float, d: float, h: float, wall: String, roof_c: String, door: String) -> Node3D:
 	# Si hay un modelo GLB de casa, úsalo; si no, conserva la versión procedural.
 	# El archivo opcional se documenta en godot/models/README.md.
-	var glb_path := "res://models/environment/medieval_house.glb"
+	var glb_path := "res://models/environment/medieval_house.tscn"
 	if ResourceLoader.exists(glb_path):
 		var packed := load(glb_path) as PackedScene
 		if packed:
@@ -450,7 +450,7 @@ func _trees() -> void:
 			continue
 		pts.append(Vector2(x, z))
 	# Modelo externo opcional para primeros planos. El bosque lejano sigue usando MultiMesh.
-	var tree_path := "res://models/environment/tree_oak.glb"
+	var tree_path := "res://models/environment/tree_oak.tscn"
 	var tree_scene: PackedScene
 	if ResourceLoader.exists(tree_path):
 		tree_scene = load(tree_path) as PackedScene
