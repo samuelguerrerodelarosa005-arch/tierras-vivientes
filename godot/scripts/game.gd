@@ -49,6 +49,8 @@ const ITEMS := {
 	"hierro": {"name": "Mineral de hierro", "base": 6},
 	"gel": {"name": "Gel de limo", "base": 4},
 	"cristal": {"name": "Cristal lunar", "base": 30},
+	"encargo_pan": {"name": "Encargo de pan de Bruno", "base": 0},
+	"encargo_herramientas": {"name": "Encargo de Lía para Dorran", "base": 0},
 }
 const GRADES := ["Común", "Rara", "Épica", "Única", "Legendaria"]
 const GRADE_COL := [Color(0.79, 0.82, 0.84), Color(0.42, 0.79, 0.9), Color(0.69, 0.49, 1.0), Color(0.91, 0.71, 0.3), Color(1.0, 0.54, 0.24)]
@@ -61,13 +63,13 @@ const TITLES := {
 	"Martillo Firme": "Zona de golpe más ancha en la forja.",
 	"Viajero Lunar": "+50 % de regeneración de maná.",
 	"Heredero del Yunque": "Toda espada que forjes sube un grado.",
+	"Héroe de Valdeluz": "Lo gana el pueblo, no tú: los habitantes te pagan un 10 % más.",
+	"Promesa Rota": "El pueblo sabe que fallas: te ofrecen un 20 % menos.",
 }
 
+# Misiones escritas a mano (ganchos fijos). Las demás las crea el director de sim.gd.
 # Las recompensas las decide el juego, nunca la IA.
 const QT := {
-	"trigo": {"giver": "bruno", "title": "Trigo para el horno", "desc": "Recoge 4 gavillas de trigo en el sembrado de Lía y llévaselas a Bruno.", "type": "item", "item": "trigo", "need": 4, "reward": {"gold": 20, "aff": 8, "xp": 30}},
-	"limos": {"giver": "lia", "title": "Limos en el sembrado", "desc": "Elimina 4 limos (los del sembrado o los del este) y vuelve con Lía.", "type": "kill", "need": 4, "reward": {"gold": 18, "aff": 10, "xp": 35}},
-	"hierro": {"giver": "dorran", "title": "Hierro para la forja", "desc": "Pica 3 trozos de mineral en las rocas del este y llévaselos a Dorran.", "type": "item", "item": "hierro", "need": 3, "reward": {"gold": 15, "aff": 6, "xp": 30}},
 	"investigar": {"giver": "sira", "title": "¿Acapara Bruno?", "desc": "Revisa el almacén detrás de la panadería y vuelve con Sira.", "type": "flag", "need": 1, "reward": {"gold": 12, "aff": 8, "xp": 40}},
 	"maestro": {"giver": "dorran", "hidden": true, "once": true, "title": "La forja del maestro", "desc": "Dorran te confió su secreto: trae un Cristal lunar de las Ruinas.", "type": "item", "item": "cristal", "need": 1, "reward": {"gold": 40, "aff": 15, "xp": 80, "title": "Heredero del Yunque"}},
 }
@@ -291,14 +293,16 @@ func advance(mins: float) -> void:
 
 func _hour_tick() -> void:
 	var h := hour_now()
-	var pests: int = world.slimes_near_field() if world else 0
-	wheat += -1.0 if pests >= 3 else 2.5
-	if h >= 6 and h < 19:
-		wheat -= 2.2
-	wheat = clampf(wheat, 0.0, 60.0)
-	if h >= 7 and h < 18:
-		iron = maxf(0.0, iron - 0.35)
-	upd_prices()
+	if world == null or world.sim == null:
+		# sin simulación (pruebas sueltas): economía mínima
+		var pests: int = world.slimes_near_field() if world else 0
+		wheat += -1.0 if pests >= 3 else 2.5
+		if h >= 6 and h < 19:
+			wheat -= 2.2
+		wheat = clampf(wheat, 0.0, 60.0)
+		if h >= 7 and h < 18:
+			iron = maxf(0.0, iron - 0.35)
+		upd_prices()
 	if world:
 		world.on_hour_tick()
 	if h == 6:
@@ -314,10 +318,20 @@ func bread_cost() -> int:
 		c = ceilf(c / 2.0)
 	if title_active("Amigo de los Panaderos"):
 		c -= 1.0
+	if now_abs() < float(flags.get("bread_discount_until", 0.0)):
+		c -= 1.0
 	return maxi(1, int(c))
 
 
-# ---------- misiones ----------
+# ---------- misiones (fijas de QT + dinámicas del director) ----------
+
+func qdef(id: String) -> Dictionary:
+	if QT.has(id):
+		return QT[id]
+	if world and world.sim:
+		return world.sim.defs.get(id, {})
+	return {}
+
 
 func active_q(id: String) -> Dictionary:
 	for q in quests:
@@ -327,24 +341,28 @@ func active_q(id: String) -> Dictionary:
 
 
 func q_progress(q: Dictionary) -> int:
-	var d: Dictionary = QT[q.id]
+	var d := qdef(q.id)
+	if d.is_empty():
+		return 0
 	if d.type == "item":
 		return mini(int(d.need), count(d.item))
 	return mini(int(d.need), int(q.progress))
 
 
 func q_done(q: Dictionary) -> bool:
-	return q_progress(q) >= int(QT[q.id].need)
+	var d := qdef(q.id)
+	return not d.is_empty() and q_progress(q) >= int(d.need)
+
+
+## Horas que quedan para el plazo (solo misiones dinámicas). -1 si no tiene plazo.
+func q_hours_left(q: Dictionary) -> int:
+	if not q.has("deadline"):
+		return -1
+	return maxi(0, int((float(q.deadline) - now_abs()) / 60.0))
 
 
 func quest_available(id: String) -> bool:
 	match id:
-		"trigo":
-			return wheat < 35.0
-		"limos":
-			return true
-		"hierro":
-			return iron < 4.0
 		"investigar":
 			return flags.get("rumor_hoard", false) and not flags.get("investigated", false)
 		"maestro":
@@ -364,13 +382,18 @@ func offerable(npc_id: String) -> Array:
 			continue
 		if quest_available(id):
 			out.append(id)
+	if world and world.sim:
+		var dyn: String = world.sim.offer_for(npc_id)
+		if dyn != "":
+			out.append(dyn)
 	return out
 
 
 func deliverable(npc_id: String) -> Array:
 	var out := []
 	for q in quests:
-		if QT[q.id].giver == npc_id and q_done(q):
+		var d := qdef(q.id)
+		if not d.is_empty() and str(d.get("deliver_to", d.giver)) == npc_id and q_done(q):
 			out.append(q)
 	return out
 
@@ -378,34 +401,45 @@ func deliverable(npc_id: String) -> Array:
 func accept_quest(id: String) -> void:
 	if not active_q(id).is_empty():
 		return
-	quests.append({"id": id, "progress": 0})
-	say("Misión aceptada: " + QT[id].title, "gold")
+	var d := qdef(id)
+	if d.is_empty():
+		return
+	var q := {"id": id, "progress": 0}
+	if d.get("dyn", false):
+		q["deadline"] = now_abs() + float(d.hours) * 60.0
+		world.sim.on_accept(id)
+	quests.append(q)
+	say("Misión aceptada: " + str(d.title), "gold")
 	Sfx.play("pick")
 	changed.emit()
 
 
 func deliver_quest(q: Dictionary, n) -> void:
-	var d: Dictionary = QT[q.id]
+	var d := qdef(q.id)
 	if d.type == "item":
 		remove_item(d.item, int(d.need))
 	quests.erase(q)
 	done_at[q.id] = now_abs()
+	if d.get("dyn", false):
+		var giver = npcs[d.giver]
+		# la confianza crece cada vez más despacio (cuesta llegar a lo más alto)
+		giver.aff = clampf(giver.aff + float(d.reward.aff) * (1.0 - maxf(giver.aff, 0.0) / 120.0), -100.0, 100.0)
+		if n != giver:
+			n.aff = clampf(n.aff + 3.0, -100.0, 100.0)
+		add_xp(int(d.reward.xp))
+		Sfx.play("coin")
+		giver.remember("%s cumplió: %s" % [player_name, str(d.title).to_lower()])
+		var got: String = world.sim.on_success(q.id, n)
+		say("Misión completada: %s. %s" % [d.title, got], "gold")
+		check_titles()
+		changed.emit()
+		return
 	gold += int(d.reward.gold)
 	n.aff = clampf(n.aff + float(d.reward.aff), -100.0, 100.0)
 	add_xp(int(d.reward.xp))
 	Sfx.play("coin")
 	var extra := ""
 	match q.id:
-		"trigo":
-			wheat += 14.0
-			upd_prices()
-			extra = " El pan bajará de precio."
-			n.remember("%s me trajo trigo cuando más lo necesitaba" % player_name)
-		"hierro":
-			iron += 3.0
-			n.remember("%s me trajo hierro de las rocas del este" % player_name)
-		"limos":
-			n.remember("%s espantó a los limos de mi sembrado" % player_name)
 		"maestro":
 			n.remember("%s trajo un cristal lunar para honrar a mi maestro" % player_name)
 		"investigar":
@@ -423,6 +457,8 @@ func deliver_quest(q: Dictionary, n) -> void:
 				b.remember("%s demostró que yo no escondía harina" % player_name)
 				n.remember("%s desmintió el rumor sobre Bruno" % player_name)
 				extra = " El rumor era falso. Bruno te lo agradece."
+	if world and world.sim:
+		world.sim.record(world.sim.PLAYER, "ayudo", d.giver, "%s ayudó a %s: %s" % [player_name, n.npc_name, str(d.title).to_lower()], world.sim._witnesses(d.giver))
 	if d.reward.has("title"):
 		award_title(d.reward.title)
 	say("Misión completada: %s (+%d monedas, +%d XP).%s" % [d.title, int(d.reward.gold), int(d.reward.xp), extra], "gold")
@@ -467,6 +503,7 @@ func serialize() -> Dictionary:
 		"w": {"minute": minute, "day": day, "wheat": wheat, "iron": iron, "hoarding": hoarding, "flags": flags,
 			"rumor_log": rumor_log, "crystal_day": crystal_day},
 		"quests": quests, "done_at": done_at, "stall": stall_out, "npcs": npc_data,
+		"sim": world.sim.serialize() if world and world.sim else {},
 	}
 
 
@@ -535,10 +572,15 @@ func restore(s: Dictionary) -> Vector3:
 	rumor_log = w.get("rumor_log", [])
 	crystal_day = int(w.get("crystal_day", 0))
 	upd_prices()
+	if world and world.sim:
+		world.sim.restore(s.get("sim", {}))
 	quests = []
 	for q in s.get("quests", []):
-		if QT.has(q.get("id", "")):
-			quests.append({"id": str(q.id), "progress": int(q.get("progress", 0))})
+		if not qdef(str(q.get("id", ""))).is_empty():
+			var qq := {"id": str(q.id), "progress": int(q.get("progress", 0))}
+			if q.has("deadline"):
+				qq["deadline"] = float(q.deadline)
+			quests.append(qq)
 	done_at = s.get("done_at", {})
 	for d in s.get("npcs", []):
 		if npcs.has(d.get("id", "")):

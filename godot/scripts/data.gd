@@ -18,6 +18,7 @@ const PLACES := {
 	"sanct": {"path": [Vector2(2.8, -17.3)], "hide": false},
 	"portal_s": {"path": [Vector2(23.6, 26.2)], "hide": false},
 	"plaza_s": {"path": [Vector2(-3.1, -2.7)], "hide": false},
+	"lia_door": {"path": [Vector2(-15.0, 9.0)], "hide": false},   # Lía esperando escolta en su puerta
 }
 
 const NPC_DEFS := [
@@ -106,3 +107,58 @@ const OPINION := {
 }
 
 const FILLERS := {"bruno": "Hmph…", "lia": "¡Ay, a ver…!", "dorran": "Hmm.", "sira": "Mmm…"}
+
+# ---------- fichas de vida (fase 1: mundo vivo) ----------
+# Rasgos de 0 a 1. gold e items = lo que el NPC posee de verdad (con eso paga).
+# ladder = escalera de ambiciones: "up" son las condiciones para subir al siguiente peldaño.
+# op = opinión inicial sobre los demás (−100…100).
+const LIFE := {
+	"bruno": {
+		"traits": {"codicia": 0.55, "orgullo": 0.8, "miedo": 0.3, "lealtad": 0.6, "generosidad": 0.6, "valentia": 0.55},
+		"gold": 45, "items": {"pan": 12}, "home": "bakery_home", "work": ["bakery"],
+		"op": {"lia": 20, "dorran": 10, "sira": 15},
+		"ladder": [
+			{"name": "Sobrevivir", "goal": "que no le falte harina al horno", "up": {"gold": 70}},
+			{"name": "Panadería próspera", "goal": "que su pan se coma en todo Valdeluz", "up": {"gold": 110, "trust": 15}},
+			{"name": "Gremio de Valdeluz", "goal": "unir a los artesanos del pueblo en un gremio", "up": {"op": {"dorran": 30, "lia": 30}}},
+			{"name": "Desafiar a la capital", "goal": "romper el monopolio de harina de la capital", "up": {}},
+		],
+	},
+	"lia": {
+		"traits": {"codicia": 0.2, "orgullo": 0.3, "miedo": 0.7, "lealtad": 0.8, "generosidad": 0.8, "valentia": 0.3},
+		"gold": 22, "items": {"manzana": 6}, "home": "lia_home", "work": ["field", "field2"],
+		"op": {"bruno": 25, "dorran": 20, "sira": 30},
+		"ladder": [
+			{"name": "Salvar la cosecha", "goal": "que los limos no se coman el trigo", "up": {"wheat": 42, "gold": 35}},
+			{"name": "Ampliar el sembrado", "goal": "sembrar el campo del norte con herramientas nuevas", "up": {"gold": 60, "trust": 20}},
+			{"name": "Mercado propio", "goal": "vender su cosecha en un mercado del pueblo", "up": {}},
+		],
+	},
+	"dorran": {
+		"traits": {"codicia": 0.35, "orgullo": 0.9, "miedo": 0.15, "lealtad": 0.7, "generosidad": 0.35, "valentia": 0.85},
+		"gold": 60, "items": {"hierro": 2}, "home": "dorran_home", "work": ["forge"],
+		"op": {"bruno": 15, "lia": 10, "sira": 20},
+		"ladder": [
+			{"name": "Mantener la forja", "goal": "que nunca le falte hierro", "up": {"gold": 90, "trust": 15}},
+			{"name": "La obra maestra", "goal": "forjar algo digno de su maestro", "up": {}},
+		],
+	},
+	"sira": {
+		"traits": {"codicia": 0.1, "orgullo": 0.5, "miedo": 0.2, "lealtad": 0.9, "generosidad": 0.5, "valentia": 0.8},
+		"gold": 35, "items": {}, "home": "sanct", "work": ["sanct", "portal_s"],
+		"op": {"bruno": 15, "lia": 25, "dorran": 20},
+		"ladder": [
+			{"name": "Vigilar el portal", "goal": "que nada peligroso cruce el portal", "up": {"ruins": true, "trust": 10}},
+			{"name": "Descifrar las Ruinas", "goal": "entender qué despierta en las Ruinas Lunares", "up": {}},
+		],
+	},
+}
+
+# Destinos de las misiones de explorar / acompañar.
+const SPOTS := {
+	"rocas_este": {"name": "las rocas del este", "pos": Vector3(40, 0, -18), "r": 7.0},
+	"manzano": {"name": "el manzano junto al Santuario", "pos": Vector3(6, 0, -14), "r": 4.0},
+	"portal": {"name": "el círculo del portal", "pos": Vector3(27, 0, 30), "r": 6.0},
+	"ruinas": {"name": "las Ruinas Lunares", "pos": Vector3(400, 0, 0), "r": 20.0},
+	"molino": {"name": "el molino del oeste", "pos": Vector3(-45, 0, 14), "r": 6.0},
+}

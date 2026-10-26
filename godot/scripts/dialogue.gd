@@ -61,7 +61,7 @@ func options() -> Array:
 		{"t": "Háblame de " + other.npc_name, "i": "other", "other": other},
 	]
 	for q in Game.deliverable(n.id):
-		o.push_front({"t": "Entregar: " + Game.QT[q.id].title, "i": "deliver", "q": q})
+		o.push_front({"t": "Entregar: " + str(Game.qdef(q.id).title), "i": "deliver", "q": q})
 	o.append({"t": "Adiós", "i": "bye"})
 	return o
 
@@ -82,7 +82,7 @@ func choose(o: Dictionary) -> void:
 			close()
 		"deliver":
 			Game.deliver_quest(o.q, n)
-			talk(n, "(El Viajero te entrega lo que pediste para «%s». Reacciona.)" % Game.QT[o.q.id].title, "thanks")
+			talk(n, "(El Viajero te entrega lo que pediste para «%s». Reacciona.)" % str(Game.qdef(o.q.id).title), "thanks")
 		"special":
 			var r := _special_run(n.id)
 			talk(n, r.prompt, "special", r.reply, o.t)
@@ -188,7 +188,7 @@ func talk(n: Node, player_text: String, intent: String, fallback: String = "", s
 	if want in offers:
 		offer = want
 	elif intent == "work" and not offers.is_empty():
-		offer = offers[0]
+		offer = offers[-1] if Game.qdef(offers[-1]).get("dyn", false) else offers[0]
 	else:
 		offer = ""
 	busy = false
@@ -203,6 +203,8 @@ func _scripted(n: Node, intent: String, offers: Array, fallback: String) -> Dict
 		t = fallback
 	elif intent == "about":
 		t = Data.ABOUT[n.id].pick_random()
+		if main.sim:
+			t += " Lo que quiero ahora: %s." % main.sim.goal_text(n.id)
 	elif intent == "greet":
 		t = lines.greet.pick_random() + (" Me alegra verte." if n.aff >= 20 else "")
 		if not n.memory.is_empty() and randf() < 0.5:
@@ -211,7 +213,11 @@ func _scripted(n: Node, intent: String, offers: Array, fallback: String) -> Dict
 	elif intent == "work":
 		if offers.is_empty():
 			t = lines.none.pick_random()
-		elif Game.QT[offers[0]].get("hidden", false):
+			if main.sim and float(main.sim.a(n.id).fear) >= 0.5:
+				t = "Ahora mismo… tengo miedo de salir. Los limos rondan el campo."
+		elif Game.qdef(offers[-1]).get("dyn", false):
+			t = main.sim.ask_line(offers[-1])
+		elif Game.qdef(offers[0]).get("hidden", false):
 			t = "…Has demostrado buen oído. Mi maestro forjaba con cristales lunares. Tráeme uno de las Ruinas."
 		else:
 			t = lines.work.pick_random()
@@ -222,13 +228,16 @@ func _scripted(n: Node, intent: String, offers: Array, fallback: String) -> Dict
 	else:
 		t = lines.generic.pick_random()
 	var emote := "saludar" if intent == "greet" else ("reir" if intent == "thanks" else "hablar")
-	return {"decir": t, "emote": emote, "afinidad": 1 if intent == "greet" else 0, "ofrecer_mision": offers[0] if intent == "work" and not offers.is_empty() else ""}
+	var om := ""
+	if intent == "work" and not offers.is_empty():
+		om = offers[-1] if Game.qdef(offers[-1]).get("dyn", false) else offers[0]
+	return {"decir": t, "emote": emote, "afinidad": 1 if intent == "greet" else 0, "ofrecer_mision": om}
 
 
 func _prompt(n: Node, player_text: String, offers: Array) -> String:
 	var q := ""
 	for id in offers:
-		var d: Dictionary = Game.QT[id]
+		var d: Dictionary = Game.qdef(id)
 		q += "- %s: %s — %s%s\n" % [id, d.title, d.desc, " (misión oculta: solo la ofreces porque confías en el Viajero)" if d.get("hidden", false) else ""]
 	if q == "":
 		q = "- (ninguna)\n"

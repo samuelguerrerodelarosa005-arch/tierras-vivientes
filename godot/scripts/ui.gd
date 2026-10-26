@@ -511,10 +511,11 @@ func refresh_hud() -> void:
 	if Game.quests.is_empty():
 		refs.quests.add_child(L("Habla con los habitantes. Pregúntales si tienen trabajo.", 13, C_MUTED))
 	for q in Game.quests:
-		var d: Dictionary = Game.QT[q.id]
+		var d: Dictionary = Game.qdef(q.id)
 		var done := Game.q_done(q)
-		refs.quests.add_child(L("%s  %d/%d" % [d.title, Game.q_progress(q), d.need], 15, C_OK if done else C_TEXT))
-		refs.quests.add_child(L("Vuelve con %s para entregarla." % Game.npcs[d.giver].npc_name if done else d.desc, 12, C_MUTED))
+		var left := Game.q_hours_left(q)
+		refs.quests.add_child(L("%s  %d/%d%s" % [d.title, Game.q_progress(q), d.need, ("  · %d h" % left) if left >= 0 else ""], 15, C_OK if done else C_TEXT))
+		refs.quests.add_child(L("Vuelve con %s para entregarla." % Game.npcs[str(d.get("deliver_to", d.giver))].npc_name if done else str(d.desc), 12, C_MUTED))
 
 
 func set_prompt(text: String) -> void:
@@ -707,17 +708,29 @@ func _build_dialog() -> void:
 		b.add_child(L("Tú: " + d.you, 18, C_SYS))
 	b.add_child(L(("%s está pensando…" % n.npc_name) if d.thinking else d.reply, 22))
 	if d.offer != "":
-		var q: Dictionary = Game.QT[d.offer]
+		var q: Dictionary = Game.qdef(d.offer)
 		var op := PanelContainer.new()
 		op.add_theme_stylebox_override("panel", Util.sbox(Color(0.91, 0.71, 0.3, 0.08), C_BRASS, 8, 2, 14.0))
 		var ov := VBoxContainer.new()
 		op.add_child(ov)
-		ov.add_child(L(("MISIÓN OCULTA" if q.get("hidden", false) else "MISIÓN") + " · LA DECIDE EL JUEGO", 12, C_SYS))
+		var dyn: bool = q.get("dyn", false)
+		ov.add_child(L(("MISIÓN OCULTA" if q.get("hidden", false) else ("MISIÓN QUE NACE DEL MUNDO" if dyn else "MISIÓN")) + " · LA DECIDE EL JUEGO", 12, C_SYS))
 		ov.add_child(L(q.title, 22, C_BRASS))
+		if dyn:
+			ov.add_child(L("Por qué: %s." % q.reason, 15, C_MUTED))
 		ov.add_child(L(q.desc, 16))
 		var rw: Dictionary = q.reward
-		ov.add_child(L("Recompensa: %d monedas · %d XP · +%d afinidad%s" % [rw.gold, rw.xp, rw.aff, (" · título «%s»" % rw.title) if rw.has("title") else ""], 14, C_MUTED))
-		ov.add_child(row([B("Aceptar misión", _accept_offer.bind(str(d.offer)), true), B("Ahora no", _decline_offer)]))
+		if dyn:
+			ov.add_child(L("Recompensa: %s · %d XP · +%d confianza · plazo %d h" % [main.sim.reward_text(rw), rw.xp, rw.aff, int(q.hours)], 14, C_MUTED))
+			if q.get("parent", "") != "":
+				ov.add_child(L("Viene de algo que hiciste antes.", 13, C_SYS))
+		else:
+			ov.add_child(L("Recompensa: %d monedas · %d XP · +%d afinidad%s" % [rw.gold, rw.xp, rw.aff, (" · título «%s»" % rw.title) if rw.has("title") else ""], 14, C_MUTED))
+		var btns: Array = [B("Aceptar misión", _accept_offer.bind(str(d.offer)), true)]
+		if dyn and not q.haggled:
+			btns.append(B("Pedir más", _haggle.bind(str(d.offer))))
+		btns.append(B("Ahora no", _decline_offer))
+		ov.add_child(row(btns))
 		b.add_child(op)
 	else:
 		var g := grid(2)
@@ -769,7 +782,7 @@ func _build_menu() -> void:
 		return
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 6)
-	for t in [["inv", "Inventario"], ["quests", "Misiones"], ["rumors", "Rumores"], ["titles", "Títulos"], ["gestos", "Gestos"], ["settings", "Ajustes"]]:
+	for t in [["inv", "Inventario"], ["quests", "Misiones"], ["rumors", "Rumores"], ["people", "Relaciones"], ["titles", "Títulos"], ["gestos", "Gestos"], ["settings", "Ajustes"]]:
 		tabs.add_child(B(t[1], func():
 			menu_tab = t[0]
 			mark("menu")
@@ -801,10 +814,13 @@ func _build_menu() -> void:
 			if Game.quests.is_empty():
 				b.add_child(L("Sin misiones. Pregunta a los habitantes si tienen trabajo.", 18, C_MUTED))
 			for q in Game.quests:
-				var d: Dictionary = Game.QT[q.id]
+				var d: Dictionary = Game.qdef(q.id)
 				var done := Game.q_done(q)
-				b.add_child(L("%s  %d/%d" % [d.title, Game.q_progress(q), d.need], 20, C_OK if done else C_TEXT))
-				b.add_child(L("Vuelve con %s para entregarla." % Game.npcs[d.giver].npc_name if done else d.desc, 15, C_MUTED))
+				var left := Game.q_hours_left(q)
+				b.add_child(L("%s  %d/%d%s" % [d.title, Game.q_progress(q), d.need, ("  · quedan %d h" % left) if left >= 0 else ""], 20, C_OK if done else C_TEXT))
+				b.add_child(L("Vuelve con %s para entregarla." % Game.npcs[str(d.get("deliver_to", d.giver))].npc_name if done else str(d.desc), 15, C_MUTED))
+				if d.get("dyn", false):
+					b.add_child(L("Recompensa: " + main.sim.reward_text(d.reward), 13, C_MUTED))
 		"rumors":
 			b.add_child(L("Lo que los habitantes se dicen entre ellos. Los rumores abren misiones.", 15, C_MUTED))
 			if Game.rumor_log.is_empty():
@@ -812,6 +828,21 @@ func _build_menu() -> void:
 			for r in Game.rumor_log.slice(0, 7):
 				b.add_child(L(str(r.text), 17))
 				b.add_child(L("Día %d · %s" % [int(r.day), r.t], 13, C_MUTED))
+		"people":
+			b.add_child(L("Lo que cada habitante piensa de ti, lo que quiere y lo que sabe. La confianza sube con hechos, no con palabras.", 15, C_MUTED))
+			for n in main.npcs:
+				var act: Dictionary = main.sim.a(n.id)
+				var lad: Array = main.sim.Data.LIFE[n.id].ladder
+				var st: Dictionary = lad[clampi(int(act.step), 0, lad.size() - 1)]
+				b.add_child(L("%s — %s" % [n.npc_name, n.role], 20, C_BRASS))
+				b.add_child(L(main.sim.rep_line(n.id), 15))
+				b.add_child(L("Quiere: %s (%s)%s" % [main.sim.goal_text(n.id), st.name, " · tiene miedo" if act.hiding else ""], 14, C_MUTED))
+				var k := 0
+				for fid in main.sim.known[n.id]:
+					var f: Dictionary = main.sim._fact(int(fid))
+					if not f.is_empty() and f.actor == main.sim.PLAYER:
+						k += 1
+				b.add_child(L("Sabe %d cosas de ti · %d monedas" % [k, roundi(float(act.gold))], 13, C_MUTED))
 		"titles":
 			if Game.titles.is_empty():
 				b.add_child(L("Gana títulos con tus hazañas. Solo uno está activo a la vez.", 18, C_MUTED))
@@ -895,6 +926,15 @@ func _vol(step: float) -> void:
 func _accept_offer(off_id: String) -> void:
 	Game.accept_quest(off_id)
 	main.dialogue.offer = ""
+	mark("dialog")
+
+
+func _haggle(off_id: String) -> void:
+	var r: Dictionary = main.sim.negotiate(off_id)
+	var n = main.dialogue.npc
+	if n:
+		main.dialogue.reply = r.line
+		n.say(r.line, "pensar" if r.ok else "enojado")
 	mark("dialog")
 
 
@@ -1158,7 +1198,7 @@ func _update_wrist_values() -> void:
 	var q_text := "Nivel %d" % Game.lvl
 	if not Game.quests.is_empty():
 		var q: Dictionary = Game.quests[0]
-		q_text = "%s %d/%d" % [Game.QT[q.id].title, Game.q_progress(q), Game.QT[q.id].need]
+		q_text = "%s %d/%d" % [Game.qdef(q.id).title, Game.q_progress(q), Game.qdef(q.id).need]
 	wrist_refs.quest.text = q_text
 	wrist_refs.spell.text = "Hechizo: " + Game.SPELLS[Game.spell].name
 	wrist_refs.seat.text = "Sentado: sí" if Game.seated else "Sentado: no"

@@ -15,6 +15,7 @@ const UI = preload("res://scripts/ui.gd")
 const Dialogue = preload("res://scripts/dialogue.gd")
 const Panel3D = preload("res://scripts/panel3d.gd")
 const Gestures = preload("res://scripts/gestures.gd")
+const Sim = preload("res://scripts/sim.gd")
 
 const ZONES := [{"x": -32.0, "z": 14.0, "r": 7.0, "n": 3}, {"x": 54.0, "z": 4.0, "r": 12.0, "n": 5}]
 const RESPAWN := Vector3(0, 0, -17.2)
@@ -56,6 +57,8 @@ var target_label: Label3D
 var hammer: Node3D
 var hammer_head: Node3D
 var tts_voices := PackedStringArray()
+var sim: Node = null          # sim.gd: economía, hechos, reputación y director de misiones
+var sim_t := 0.0
 var smoke := false
 
 
@@ -81,6 +84,10 @@ func _ready() -> void:
 	world = World.new()
 	add_child(world)
 	world.build()
+	# la simulación (autoridad del mundo vivo) existe antes que los NPC que la consultan
+	sim = Sim.new()
+	add_child(sim)
+	sim.setup(self)
 	player = Player.new()
 	player.main = self
 	add_child(player)
@@ -130,6 +137,8 @@ func _ready() -> void:
 		_run_soak()
 	elif "--shots" in OS.get_cmdline_user_args():
 		_run_shots()
+	elif "--month" in OS.get_cmdline_user_args():
+		_run_month()
 
 
 func _setup_input() -> void:
@@ -259,6 +268,8 @@ func slimes_near_field() -> int:
 
 
 func on_hour_tick() -> void:
+	if sim:
+		sim.hour_tick()
 	if not fragment.is_empty() and Game.now_abs() > float(fragment.exp):
 		fragment.node.queue_free()
 		fragment = {}
@@ -798,9 +809,10 @@ func on_slime_killed(_s: Node) -> void:
 	Game.add_item("gel")
 	Game.gold += randi_range(2, 4)
 	Game.add_xp(12)
-	var q := Game.active_q("limos")
-	if not q.is_empty():
-		q.progress = int(q.progress) + 1
+	for q in Game.quests:
+		var qd := Game.qdef(q.id)
+		if qd.get("type", "") == "kill":
+			q.progress = int(q.progress) + 1
 	Game.check_titles()
 	Game.changed.emit()
 
@@ -820,6 +832,12 @@ func hurt_player(n: float) -> void:
 
 
 func _die() -> void:
+	if sim:
+		var wit := []
+		for n in npcs:
+			if not n.away and n.pos.distance_to(player_pos()) < 20.0:
+				wit.append(n.id)
+		sim.record(sim.PLAYER, "murio", "", "%s cayó en combate cerca del pueblo" % Game.player_name, wit)
 	Game.alive = false
 	Game.hp = 0.0
 	var lost := int(Game.xp * 0.3)
@@ -847,6 +865,8 @@ func forge_width() -> float:
 		w *= 1.15
 	if Game.title_active("Martillo Firme"):
 		w *= 1.2
+	if Game.now_abs() < float(Game.flags.get("forge_lesson_until", 0.0)):
+		w *= 1.15   # lección de Dorran
 	return w
 
 
@@ -944,6 +964,8 @@ func _finish_forge() -> void:
 	Game.forged_own = true
 	Game.say("Forjaste: %s — precisión %d %%." % [Game.item_name("espada:%d" % g), roundi(avg * 100.0)], "gold")
 	var d = Game.npcs["dorran"]
+	if g >= 2 and sim:
+		sim.record(sim.PLAYER, "forjo", "dorran", "%s forjó una espada %s" % [Game.player_name, Game.GRADES[g].to_lower()], sim._witnesses("dorran") if not d.away and d.pos.distance_to(player_pos()) < 12.0 else [])
 	if g >= 2:
 		Game.award_title("Martillo Firme")
 		d.remember("%s forjó una espada %s en mi yunque" % [Game.player_name, Game.GRADES[g].to_lower()])
@@ -1108,11 +1130,17 @@ func _update_eat(dt: float) -> void:
 
 func buy_bread() -> void:
 	var c := Game.bread_cost()
+	if sim and sim.pan_stock < 1.0:
+		Game.say("Bruno no tiene pan ahora: le falta trigo.", "bad")
+		return
 	if Game.gold < c:
 		Game.say("No tienes monedas suficientes.", "bad")
 		return
 	Game.gold -= c
 	Game.add_item("pan")
+	if sim:
+		sim.pan_stock -= 1.0
+		sim.a("bruno").gold = float(sim.a("bruno").gold) + c
 	Sfx.play("coin")
 	var b = Game.npcs["bruno"]
 	b.aff = clampf(b.aff + 1.0, -100.0, 100.0)
@@ -1245,6 +1273,11 @@ func npc_chat(a: Node, b: Node) -> void:
 	a.face = b
 	b.face = a
 	var r := _rumor_for()
+	# los hechos que cada uno sabe se contagian (y se distorsionan un poco)
+	var told: Array = sim.gossip(a, b) if sim else []
+	if not told.is_empty() and randf() < 0.7:
+		var t0: Dictionary = told[0]
+		r = {"a": t0.text, "b": ["¿De verdad?", "No me digas.", "Eso explica muchas cosas.", "Habrá que ver."].pick_random(), "tag": "hecho"}
 	var near: bool = a.pos.distance_to(player_pos()) < 12.0
 	a.rumors.append(r.a)
 	b.rumors.append(r.a)
@@ -1325,6 +1358,10 @@ func _process(delta: float) -> void:
 			player.xr_frame(dt)
 		else:
 			player.update_fp_arms(dt)
+		sim_t -= dt
+		if sim_t <= 0.0:
+			sim_t = 1.0
+			sim.frame_tick()
 		_update_eat(dt)
 		_update_forge(dt)
 		for n in npcs:
@@ -1616,15 +1653,20 @@ func _run_smoke() -> void:
 			dialogue.choose(o)
 	await _wait(0.2)
 	_check(dialogue.you == "¿Quién eres?" and dialogue.reply.begins_with("Bruno") or dialogue.reply.begins_with("Soy"), "opción «¿Quién eres?» responde", fails)
+	Game.wheat = 12.0
+	sim._director()
 	for o in dialogue.options():
 		if o.i == "work":
 			dialogue.choose(o)
 	await _wait(0.2)
-	_check(dialogue.offer == "trigo", "Bruno ofrece la misión del trigo", fails)
+	var bd: Dictionary = Game.qdef(dialogue.offer)
+	_check(bd.get("template", "") == "traer" and bd.get("item", "") == "trigo" and int(bd.reward.gold) <= int(sim.a("bruno").gold), "Bruno pide trigo y paga con lo que tiene (%s)" % sim.reward_text(bd.get("reward", {"gold": 0})), fails)
+	var bruno_gold0: float = sim.a("bruno").gold
+	var off_id: String = dialogue.offer
 	Game.accept_quest(dialogue.offer)
 	dialogue.offer = ""
 	dialogue.close()
-	_check(not Game.active_q("trigo").is_empty(), "misión aceptada", fails)
+	_check(not Game.active_q(off_id).is_empty() and float(sim.a("bruno").gold) < bruno_gold0 + 0.01 and sim.escrow.has(off_id), "misión aceptada y oro reservado", fails)
 	start_forge()
 	await _wait(0.2)
 	_check(forge.active and ui.is_open("forge"), "forja abierta", fails)
@@ -1780,3 +1822,140 @@ func _run_soak() -> void:
 		frames += 1
 	print("SOAK: OK")
 	get_tree().quit(0)
+
+
+# ---------- prueba de un mes (godot --headless --path . -- --month) ----------
+# Simula 30 días de juego con un jugador automático que acepta misiones, a veces regatea,
+# cumple la mayoría y deja caducar otras. Comprueba que el mundo genera misiones variadas,
+# cadenas, ambiciones, miedo y economía coherentes, sin pagos imposibles.
+
+func _run_month() -> void:
+	smoke = true
+	await _wait(0.3)
+	# semilla fija: el mismo mes cada vez (sirve como prueba de regresión); MONTH_SEED la cambia
+	seed(int(OS.get_environment("MONTH_SEED")) if OS.get_environment("MONTH_SEED") != "" else 7)
+	start_game(false)
+	var days := int(OS.get_environment("MONTH_DAYS")) if OS.get_environment("MONTH_DAYS") != "" else 30
+	var plans := {}            # id de misión -> {"ok": bool, "at": float}
+	var bad_gold := []
+	var lia_hid := false
+	var lia_back := false
+	var wheat_min := 99.0
+	var wheat_max := 0.0
+	var chain_examples := []
+	var log_lines := []
+	for hour in days * 24:
+		# los limos viven una hora (30 pasos de 2 s reales = 1 hora de juego)
+		for sl in slimes:
+			for k in 30:
+				sl.update(2.0)
+		# cada NPC va a donde su horario/cerebro dice (sin caminar: solo el lugar lógico)
+		for n in npcs:
+			var want: String = n.sched_place()
+			if want != n.place:
+				n.set_place(want)
+				n.path = []
+				n.away = Data.PLACES[want].hide
+		Game.advance(60.0)
+		# charlas: los hechos se contagian
+		if randf() < 0.35:
+			var pa = npcs.pick_random()
+			var pb = npcs.pick_random()
+			if pa != pb:
+				sim.gossip(pa, pb)
+		# el jugador automático
+		for n in npcs:
+			var qid: String = sim.offer_for(n.id)
+			if qid != "" and Game.quests.size() < 3 and randf() < 0.75:
+				if randf() < 0.3:
+					sim.negotiate(qid)
+				var gold_before: float = sim.a(n.id).gold
+				if int(sim.defs[qid].reward.gold) > int(floor(gold_before)):
+					bad_gold.append("%s ofrece %d con %.0f" % [n.id, int(sim.defs[qid].reward.gold), gold_before])
+				Game.accept_quest(qid)
+				var hrs: float = float(sim.defs[qid].hours)
+				plans[qid] = {"ok": randf() < 0.78, "at": Game.now_abs() + randf_range(1.0, hrs * 0.6) * 60.0}
+		for q in Game.quests.duplicate():
+			var d: Dictionary = Game.qdef(q.id)
+			if not d.get("dyn", false) or not plans.has(q.id):
+				continue
+			var pl: Dictionary = plans[q.id]
+			if not pl.ok or Game.now_abs() < float(pl.at):
+				continue
+			match d.template:
+				"traer":
+					Game.add_item(d.item, int(d.need))
+				"cazar":
+					q.progress = int(d.need)
+					var killed := 0
+					for sl in slimes:
+						if sl.alive and killed < int(d.need):
+							sl.alive = false
+							sl.visible = false
+							sl.resp = 90.0
+							killed += 1
+				"escoltar", "explorar":
+					q.progress = 1
+			if d.template == "explorar" and d.spot == "ruinas":
+				Game.ruins_seen = true
+			Game.deliver_quest(q, Game.npcs[str(d.get("deliver_to", d.giver))])
+			if d.get("parent", "") != "":
+				var pd: Dictionary = sim.defs.get(d.parent, {})
+				var ce := "%s (%s) ← %s (%s)" % [d.title, d.giver, pd.get("title", "?"), pd.get("giver", "?")]
+				if not ce in chain_examples:
+					chain_examples.append(ce)
+		# vigilancia
+		for id in sim.actors:
+			if float(sim.a(id).gold) < -0.01:
+				bad_gold.append("%s con oro negativo" % id)
+		if sim.a("lia").hiding:
+			lia_hid = true
+		elif lia_hid:
+			lia_back = true
+		wheat_min = minf(wheat_min, Game.wheat)
+		wheat_max = maxf(wheat_max, Game.wheat)
+		if hour % 120 == 0:
+			log_lines.append("día %2d · trigo %2.0f · pan %2.0f (precio %d) · oro B%.0f L%.0f D%.0f S%.0f · miedo Lía %.2f · peldaños %d/%d/%d/%d" % [Game.day, Game.wheat, sim.pan_stock, Game.bread_price,
+				sim.a("bruno").gold, sim.a("lia").gold, sim.a("dorran").gold, sim.a("sira").gold, sim.a("lia").fear,
+				sim.a("bruno").step, sim.a("lia").step, sim.a("dorran").step, sim.a("sira").step])
+		if hour % 48 == 0:
+			await get_tree().process_frame
+	var st: Dictionary = sim.stats
+	print("MES: informe de %d días" % days)
+	for l in log_lines:
+		print("  " + l)
+	print("  misiones creadas %d · por tipo %s" % [st.generated, str(st.by_template)])
+	print("  cumplidas %d · fallidas %d · ofertas caducadas %d · regateos %d · rechazadas por el validador %d" % [st.success, st.failed, st.expired_offers, st.negotiations, st.invalid])
+	print("  en cadena %d · peldaños subidos %d · ruinas %d · veces que alguien se escondió %d" % [st.chained, st.steps_up, st.steps_down, st.hides])
+	print("  precio del pan %d–%d · trigo %.0f–%.0f · títulos %s" % [st.price_min, st.price_max, wheat_min, wheat_max, str(Game.titles)])
+	print("  hechos registrados %d" % sim.facts.size())
+	for n in npcs:
+		var ok_n := 0
+		var ko_n := 0
+		var given := 0
+		for qid in sim.defs:
+			if sim.defs[qid].giver == n.id:
+				given += 1
+		for f in sim.facts:
+			if f.target == n.id and f.verb == "ayudo":
+				ok_n += 1
+			elif f.target == n.id and f.verb == "fallo":
+				ko_n += 1
+		print("  %s: %s · %s · %s · encargos %d (cumplidos %d, fallados %d)" % [n.npc_name, sim.rep_line(n.id), sim.goal_text(n.id), "arruinado" if sim.a(n.id).ruined else "%d monedas" % roundi(float(sim.a(n.id).gold)), given, ok_n, ko_n])
+	for c in chain_examples:
+		print("  cadena: " + c)
+	for q in Game.quests:
+		var qd2: Dictionary = Game.qdef(q.id)
+		print("  activa al final: %s (%s) progreso %d plazo %s" % [qd2.get("title", q.id), qd2.get("template", "fija"), int(q.progress), str(Game.q_hours_left(q))])
+	var fails := []
+	if int(st.generated) < 20: fails.append("pocas misiones (%d)" % st.generated)
+	if (st.by_template as Dictionary).size() < 4: fails.append("pocos tipos de misión")
+	if int(st.chained) < 3: fails.append("pocas cadenas (%d)" % st.chained)
+	if int(st.success) < 10: fails.append("pocas cumplidas")
+	if int(st.failed) < 1: fails.append("ningún fracaso (las consecuencias no se prueban)")
+	if int(st.steps_up) < 2: fails.append("las ambiciones no avanzan")
+	if not (lia_hid and lia_back): fails.append("el miedo no aparece o no se recupera")
+	if int(st.price_min) >= int(st.price_max): fails.append("el precio del pan no se mueve")
+	if not bad_gold.is_empty(): fails.append("pagos imposibles: %s" % str(bad_gold.slice(0, 3)))
+	print("MES: OK" if fails.is_empty() else "MES: FALLA " + str(fails))
+	get_tree().quit(0 if fails.is_empty() else 1)

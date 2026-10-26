@@ -72,6 +72,11 @@ func sched_place() -> String:
 	for e in s:
 		if h >= int(e[0]):
 			cur = e[1]
+	# el cerebro de la simulación puede cambiar el plan (miedo, acompañar, ambiciones)
+	if main and main.sim:
+		var o: String = main.sim.override_place(id, cur)
+		if o != "":
+			return o
 	return cur
 
 
@@ -141,7 +146,7 @@ func update(dt: float, t: float) -> void:
 				path = [Vector2(o.pos.x + away_v.x / dlen * 1.6, o.pos.z + away_v.z / dlen * 1.6)]
 			if visit_timer <= 0.0 or o.away:
 				end_visit()
-		if not path.is_empty():
+		if not path.is_empty() and not (main.sim and main.sim.escort_wait(self)):
 			var tgt: Vector2 = path[0]
 			var dx := tgt.x - pos.x
 			var dz := tgt.y - pos.z

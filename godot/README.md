@@ -68,6 +68,27 @@ habrá que usar el plugin **Godot OpenXR Vendors** con *Gradle Build*.
 - **Comer**: la comida aparece en tu mano derecha; llévala a la boca (3 mordidas).
 - **Forjar**: golpea el yunque con el martillo o pulsa el gatillo cuando la marca esté en la luz.
 
+## Mundo vivo (fase 1)
+
+La simulación (`scripts/sim.gd`) es la que manda; los gráficos solo la muestran.
+
+- **Cada habitante tiene oro, objetos, hambre, miedo y una escalera de ambiciones** (`LIFE` en `scripts/data.gd`).
+  Bruno quiere pasar de sobrevivir a fundar un gremio; Lía, salvar la cosecha y ampliar el campo; Dorran, la obra
+  maestra; Sira, descifrar las Ruinas. Suben de peldaño con oro y confianza, y bajan si se arruinan.
+- **Las misiones nacen de problemas reales**: limos en el sembrado → cazar; poco trigo → traer; miedo → escoltar;
+  objetivos → entregar o explorar. Te las **propone el habitante**, no tú.
+- **Solo paga con lo que tiene**: la recompensa sale de su oro (queda **apartada** al aceptar y se devuelve si fallas).
+  Si no le llega, paga con pan, descuentos, lecciones de forja o bendiciones. Un validador rechaza cualquier oferta
+  imposible, y la oferta se recalcula si el habitante se empobrece antes de que la aceptes.
+- **Pedir más**: regatear sale bien o mal según su carácter y la confianza que te tiene.
+- **Plazos y cadenas**: cada misión tiene plazo. Cumplir abre otras (cazar limos → Sira te manda al portal →
+  Ruinas → Dorran quiere cristal lunar). Fallar baja la confianza, deja testigos y el rumor corre.
+- **Reputación**: miedo, respeto y cariño, además de la confianza. Los títulos los da el pueblo («Héroe de
+  Valdeluz», «Promesa Rota»).
+- **Economía circular**: trigo → pan → viajeros; impuesto de la capital, gasto de los ricos y perdón con el tiempo.
+- **Miedo**: con muchos limos, Lía se encierra en casa y pide escolta.
+- Menú → **Relaciones**: qué piensa cada uno de ti, su meta actual y lo que sabe de ti.
+
 ## IA de los habitantes
 
 Ahora hablan con su **guion**. No hay APIs de pago: la IA local (modelo de lenguaje, voces diseñadas y clonadas,
@@ -106,13 +127,18 @@ Capturas para revisar el aspecto sin visor: `godot --path godot -- --shots` (gua
 ```
 godot --headless --path godot -- --smoke   # 35 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, sin API de pago, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
+godot --headless --path godot -- --month   # 30 días con un jugador automático: misiones, cadenas, ambiciones, economía
 ```
+
+`--month` acepta `MONTH_DAYS` y `MONTH_SEED` (variables de entorno). Falla si no hay misiones variadas, si no se
+encadenan, si nadie sube de peldaño, si alguien paga oro que no tiene o si el precio del pan nunca cambia.
 
 ## Estructura
 
 | Archivo | Qué hace |
 |---|---|
 | `scripts/main.gd` | Bucle del juego, interactuables, hechizos, forja, comida, tienda, rumores, portal, cielo, guardado |
+| `scripts/sim.gd` | Mundo vivo: economía, miedo, hechos y rumores, reputación, director de misiones, ambiciones |
 | `scripts/game.gd` | Datos y estado global (autoload `Game`): trabajos, sinergias, misiones, títulos, guardado |
 | `scripts/player.gd` | Jugador en primera persona: PC, mandos y hand tracking (OpenXR) |
 | `scripts/npc.gd` + `scripts/data.gd` | Habitantes: agenda, rutas, visitas, memoria, afinidad, rumores |
