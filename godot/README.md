@@ -79,6 +79,16 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
   `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
 - **Voces de los habitantes**: usan el texto a voz del sistema (Windows o Android). La calidad depende del dispositivo.
 
+## Instalación de un modelo 3D
+
+Para descargar el modelo humanoide CC0 que se usa como base para los habitantes, ejecuta desde la raíz del repositorio en PowerShell:
+
+```powershell
+.\godot\tools\install_3d_assets.ps1
+```
+
+Esto instala `godot/models/characters/villager.glb`. Para las casas, árboles, enemigos y brazos de primera persona todavía hay que seleccionar e importar modelos compatibles; consulta [la guía de modelos](models/README.md). No se ha confirmado aún una prueba completa en Godot ni en un visor Quest 3S.
+
 ## Mejora visual y modelos 3D
 
 La rama `visual-realista-quest3s` incluye una primera pasada de iluminación, paleta naturalista, entramado de madera y piedra,
