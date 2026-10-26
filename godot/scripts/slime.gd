@@ -16,28 +16,61 @@ var dmg_t := 0.0
 var resp := 0.0
 var blob: MeshInstance3D
 var blob_mat: StandardMaterial3D
+var imported_enemy: Node3D
+var imported_enemy_anim: AnimationPlayer
 var mark: Label3D
 
 
 func setup(m: Node, z: Dictionary) -> void:
 	main = m
 	zone = z
+	var enemy_path := "res://models/characters/enemy_slime.glb"
+	if ResourceLoader.exists(enemy_path):
+		var packed_enemy := load(enemy_path) as PackedScene
+		if packed_enemy:
+			imported_enemy = packed_enemy.instantiate() as Node3D
+			if imported_enemy:
+				imported_enemy.name = "ImportedSlimeEnemy"
+				add_child(imported_enemy)
+				imported_enemy.scale = Vector3.ONE * 0.9
+				imported_enemy_anim = _find_animation_player(imported_enemy)
 	blob_mat = StandardMaterial3D.new()
 	blob_mat.albedo_color = Color(0.44, 0.83, 0.42, 0.85)
 	blob_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	blob_mat.emission_enabled = true
 	blob_mat.emission = Color(0.05, 0.23, 0.05)
 	blob_mat.roughness = 0.3
-	blob = Util.sphere(self, 0.55, blob_mat, Vector3(0, 0.42, 0), 14, 8)
-	var eye := Util.mat(Color(0.06, 0.12, 0.06))
-	Util.sphere(blob, 0.07, eye, Vector3(-0.17, 0.15, 0.45), 6, 3)
-	Util.sphere(blob, 0.07, eye, Vector3(0.17, 0.15, 0.45), 6, 3)
+	if imported_enemy == null:
+		blob = Util.sphere(self, 0.55, blob_mat, Vector3(0, 0.42, 0), 14, 8)
+		var eye := Util.mat(Color(0.06, 0.12, 0.06))
+		Util.sphere(blob, 0.07, eye, Vector3(-0.17, 0.15, 0.45), 6, 3)
+		Util.sphere(blob, 0.07, eye, Vector3(0.17, 0.15, 0.45), 6, 3)
 	mark = Util.label3d("◆", 70, Color(1, 0.25, 0.25), true)
 	mark.position.y = 1.3
 	mark.visible = false
 	add_child(mark)
 	hop = randf()
 	_respawn()
+
+
+func _find_animation_player(root: Node) -> AnimationPlayer:
+	if root is AnimationPlayer:
+		return root as AnimationPlayer
+	for child in root.get_children():
+		var found := _find_animation_player(child)
+		if found:
+			return found
+	return null
+
+
+func _play_enemy_animation(candidates: Array[String]) -> void:
+	if imported_enemy_anim == null:
+		return
+	for candidate in candidates:
+		if imported_enemy_anim.has_animation(candidate):
+			if imported_enemy_anim.current_animation != candidate:
+				imported_enemy_anim.play(candidate)
+			return
 
 
 func _respawn() -> void:
@@ -91,13 +124,18 @@ func update(dt: float) -> void:
 		vy = 0.0
 	position = pos
 	var sq := 1.0 + sin(hop * 8.0) * 0.05 if grounded else 1.0
-	blob.scale = Vector3(1.05 / sq, 0.72 * sq * (1.0 if grounded else 1.15), 1.05 / sq)
+	if imported_enemy != null:
+		imported_enemy.scale = Vector3(0.9 / sq, 0.9 * sq * (1.0 if grounded else 1.12), 0.9 / sq)
+		_play_enemy_animation(["Walk", "walk", "Run", "run"] if vel.length() > 0.1 else ["Idle", "idle", "Jump", "jump"])
+	elif blob:
+		blob.scale = Vector3(1.05 / sq, 0.72 * sq * (1.0 if grounded else 1.15), 1.05 / sq)
 	if vel.length() > 0.05:
 		rotation.y = atan2(vel.x, vel.z)
 	if hit_t > 0.0:
 		hit_t -= dt
-		blob_mat.emission = Color(1, 1, 1)
-	else:
+		if blob_mat:
+			blob_mat.emission = Color(1, 1, 1)
+	elif blob_mat:
 		blob_mat.emission = Color(0.05, 0.23, 0.05)
 	mark.visible = Game.has_job("rastreador") and d < (45.0 if Game.cls == "rastreador" else 25.0)
 	dmg_t -= dt
