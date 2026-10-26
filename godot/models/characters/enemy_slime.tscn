@@ -1,0 +1,36 @@
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Gel"]
+albedo_color = Color(0.12, 0.7, 0.25, 1)
+roughness = 0.28
+metallic = 0.02
+
+[sub_resource type="StandardMaterial3D" id="Eyes"]
+albedo_color = Color(0.025, 0.04, 0.025, 1)
+roughness = 0.3
+
+[sub_resource type="SphereMesh" id="BodyMesh"]
+radius = 0.5
+height = 0.8
+radial_segments = 12
+rings = 8
+
+[node name="SlimeModel" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.42, 0)
+scale = Vector3(1, 0.82, 0.9)
+mesh = SubResource("BodyMesh")
+surface_material_override/0 = SubResource("Gel")
+
+[node name="EyeLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 0.54, 0.39)
+scale = Vector3(0.12, 0.15, 0.07)
+mesh = SphereMesh.new()
+surface_material_override/0 = SubResource("Eyes")
+
+[node name="EyeRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.16, 0.54, 0.39)
+scale = Vector3(0.12, 0.15, 0.07)
+mesh = SphereMesh.new()
+surface_material_override/0 = SubResource("Eyes")
