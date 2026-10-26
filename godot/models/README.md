@@ -1,29 +1,27 @@
-# Modelos 3D y Meta Quest 3S
+# Modelos 3D incluidos — Tierras Vivientes
 
-## Modelo incluido en el proyecto
+Los siguientes recursos ya vienen dentro del proyecto. No hace falta descargar paquetes ni ejecutar instaladores adicionales.
 
-El archivo `models/characters/villager.glb` ya está incluido en este repositorio. Es el modelo humanoide **Superhero Male** de Quaternius Universal Base Characters, con licencia CC0 1.0. No necesitas ejecutar un instalador ni descargar ese modelo por separado.
+| Recurso | Archivo | Uso |
+|---|---|---|
+| Habitante humanoide | `characters/villager.glb` | Modelo riggeado estilizado basado en Quaternius Universal Base Characters |
+| Enemigo limo | `characters/enemy_slime.tscn` | Malla 3D con cuerpo gelatinoso y ojos |
+| Brazos del jugador | `characters/player_arm.tscn` | Mangas y manos para vista en primera persona |
+| Árbol | `environment/tree_oak.tscn` | Tronco y copas low-poly |
+| Casa medieval | `environment/medieval_house.tscn` | Paredes, tejado, puerta y ventanas |
 
-1. Descarga el ZIP de esta rama o clona el repositorio.
-2. Abre `godot/project.godot` con Godot 4.
-3. Espera a que Godot importe los recursos y ejecuta el proyecto.
+## Importar y ejecutar
 
-La licencia y procedencia del modelo están en [LICENCIA-MODELO.txt](characters/LICENCIA-MODELO.txt). El modelo es estilizado/low-poly, no fotorrealista, y no incluye animaciones; si el modelo no contiene clips compatibles, el juego conserva sus animaciones procedurales.
+1. Descarga el ZIP de la rama `visual-realista-quest3s` y descomprímelo.
+2. Abre `godot/project.godot` en Godot 4.
+3. Espera a que Godot importe los recursos y pulsa F5.
 
-## Otros modelos opcionales
+Las escenas `.tscn` usan mallas y materiales nativos de Godot, por lo que no necesitan archivos de textura o dependencias externas. Son modelos low-poly estilizados, no fotorrealistas, y están pensados como una base ligera para VR. Las animaciones del juego siguen siendo procedurales donde el modelo no aporta clips.
 
-Los cargadores admiten estos recursos opcionales si se colocan exactamente en estas rutas:
+## Licencia del humanoide
 
-- `models/characters/player_arm.glb`
-- `models/characters/enemy_slime.glb`
-- `models/environment/tree_oak.glb`
-- `models/environment/medieval_house.glb`
+El humanoide proviene de Quaternius Universal Base Characters, distribuido en el repositorio público programasweights/avatar. La fuente declara licencia CC0 1.0. Consulta [LICENCIA-MODELO.txt](characters/LICENCIA-MODELO.txt) y la [licencia CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-Fuentes de recursos gratuitos:
-- [Universal Base Characters — CC0](https://quaternius.com/packs/universalbasecharacters.html)
-- [Medieval Village MegaKit — CC0](https://quaternius.com/packs/medievalvillagemegakit.html)
-- [Universal Animation Library](https://quaternius.itch.io/universal-animation-library)
+## Verificación de Quest 3S
 
-## Meta Quest 3S: antes de publicar
-
-El modelo incluido es un primer recurso real; el resto del elenco y del entorno aún puede usar las mallas procedurales existentes. Abre el proyecto en Godot 4, comprueba errores de importación y exportación Android/OpenXR, y prueba escala, colisiones, animaciones, controles y rendimiento en el visor real. No se ha certificado el proyecto en hardware Quest 3S.
+Los recursos están incluidos en el repositorio, pero aún hay que abrir el proyecto en Godot, revisar errores de importación y ejecutar la prueba automática. La compatibilidad final, la escala en VR, las colisiones, la exportación Android/OpenXR y el rendimiento deben comprobarse en un Meta Quest 3S real antes de darlo por terminado.
