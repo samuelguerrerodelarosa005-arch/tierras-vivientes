@@ -31,7 +31,7 @@ func build(o: Dictionary) -> void:
 	imported_anim_player = null
 	imported_animation = ""
 	torso = null
-	var model_path := "res://models/characters/villager.glb"
+	var model_path := str(o.get("model_path", "res://models/characters/villager.glb"))
 	if ResourceLoader.exists(model_path):
 		var packed_model := load(model_path) as PackedScene
 		if packed_model:
