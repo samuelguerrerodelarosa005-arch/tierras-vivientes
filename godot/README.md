@@ -34,8 +34,9 @@ Si el visor no da ni mandos ni manos, el juego pasa a **apuntar con la mirada**:
 
 ## 3. Jugar sin abrir Godot
 
-Descarga `TierrasVivas-PCVR-win64.zip` (en las publicaciones del repositorio o donde te lo pase), descomprímelo y abre
-`TierrasVivas.exe` con el visor conectado como en el paso 2.
+Descomprime `TierrasVivas-PCVR-win64.zip` y abre `TierrasVivas.exe` con el visor conectado como en el paso 2.
+Para generarlo tú: en Godot, **Proyecto → Exportar → «Windows PC VR» → Exportar proyecto** (la primera vez Godot pide
+descargar las plantillas de exportación).
 
 ## Calidad gráfica
 
