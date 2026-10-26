@@ -24,7 +24,7 @@ var mark: Label3D
 func setup(m: Node, z: Dictionary) -> void:
 	main = m
 	zone = z
-	var enemy_path := "res://models/characters/enemy_slime.glb"
+	var enemy_path := "res://models/characters/enemy_slime.tscn"
 	if ResourceLoader.exists(enemy_path):
 		var packed_enemy := load(enemy_path) as PackedScene
 		if packed_enemy:
