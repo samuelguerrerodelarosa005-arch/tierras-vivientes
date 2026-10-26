@@ -1,13 +1,20 @@
-# Modelos 3D opcionales — Tierras Vivas
+# Modelos 3D — Tierras Vivas
 
-Esta carpeta está preparada para importar modelos propios en formato GLB. **No se incluyen modelos externos en este commit**: así no se redistribuyen assets sin comprobar su licencia ni se descargan archivos binarios sin que el autor los elija.
+## Incluidos (licencia CC0, verificada)
 
-## Casas
+| Carpeta | Pack | Autor | Licencia |
+|---|---|---|---|
+| `characters/` | KayKit Adventurers 1.0 (Knight, Barbarian, Mage, Rogue; 76 animaciones cada uno) | Kay Lousberg | CC0 — `characters/LICENSE_KayKit_Adventurers.txt` |
+| `village/` | KayKit Medieval Hexagon 1.0 (casas, forja, taberna, pozo, molino, árboles, rocas, objetos) | Kay Lousberg | CC0 — `village/LICENSE_KayKit_Medieval.txt` |
 
-Ruta opcional que reconoce el código:
-- `models/environment/medieval_house.glb`
+Fuente: repositorios públicos `KayKit-Game-Assets` en GitHub. El crédito no es obligatorio, pero se agradece (www.kaylousberg.com).
 
-El modelo se usa como sustituto de las casas procedurales de `scripts/world.gd`. Si el archivo no existe, el juego conserva automáticamente las casas procedurales. El modelo debe estar centrado cerca del origen, con el suelo en Y=0 y una dimensión de referencia cercana a 8 metros. Ajusta la escala y orientación si el pack tiene otro origen.
+## Casas y objetos
+
+`scripts/world.gd` carga cada edificio con `_building(archivo, x, z, puerta, escala)` y los objetos con `_place(...)`;
+los coloca con la base en el suelo, centrados, y les crea la colisión de su tamaño. Los modelos KayKit vienen en
+miniatura, por eso se escalan (`S_BUILD`, `S_PROP`). Si un archivo no existe, se dibuja la versión con primitivas.
+Para probar la escala de un modelo nuevo: `godot --path . -s tools/preview_models.gd -- salida.png village <filtro> <escala>`.
 
 ## Árboles y vegetación
 
@@ -15,7 +22,10 @@ Para Quest 3S, prioriza modelos de 1.000–5.000 triángulos por árbol, materia
 
 ## Personajes
 
-El sistema actual de `scripts/humanoid.gd` crea el esqueleto visual con primitivas y mueve brazos y piernas directamente. Un personaje realista debe incluir un rig humanoide y animaciones exportadas en GLB (por ejemplo `Idle`, `Walk`, `Talk`). No basta con copiar un modelo estático: hay que adaptar `animate()` y las referencias de extremidades para no romper gestos, diálogo ni el creador de personaje.
+`scripts/humanoid.gd` usa el modelo indicado en `"model"` (tabla `MODELS`) y reproduce sus animaciones: quieto,
+caminar, correr y los gestos de `GEST_ANIM` (saludar, hablar, martillar…). Gira la cabeza hacia el jugador y asiente al
+hablar. Un personaje nuevo debe traer rig **y** animaciones en el GLB; un modelo estático saldrá en pose T.
+Si cambias de pack, ajusta los nombres de `GEST_ANIM` y `LOOPED` a los de sus animaciones.
 
 ## Licencias y procedencia
 
