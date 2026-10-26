@@ -449,6 +449,31 @@ func _trees() -> void:
 				or (x > -20.0 and x < 30.0 and z > -28.0 and z < 20.0 and r < 34.0):
 			continue
 		pts.append(Vector2(x, z))
+	# Modelo externo opcional para primeros planos. El bosque lejano sigue usando MultiMesh.
+	var tree_path := "res://models/environment/tree_oak.glb"
+	var tree_scene: PackedScene
+	if ResourceLoader.exists(tree_path):
+		tree_scene = load(tree_path) as PackedScene
+	if tree_scene:
+		var sorted_pts: Array[Vector2] = []
+		sorted_pts.assign(pts)
+		sorted_pts.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.length_squared() < b.length_squared())
+		var near_count := mini(28, sorted_pts.size())
+		for i in near_count:
+			var p: Vector2 = sorted_pts[i]
+			var y := Util.terrain_h(p.x, p.y)
+			var instance := tree_scene.instantiate() as Node3D
+			if instance:
+				instance.name = "ImportedTree_%02d" % i
+				instance.position = Vector3(p.x, y, p.y)
+				var s := randf_range(0.85, 1.2)
+				instance.scale = Vector3.ONE * s
+				instance.rotation.y = randf() * TAU
+				add_child(instance)
+				if p.length() < 90.0:
+					Util.col_cyl(self, 0.35 * s, 3.0, Vector3(p.x, y + 1.5 * s, p.y))
+		# Evita dibujar también esos puntos con el bosque procedural.
+		pts = sorted_pts.slice(near_count)
 	var trunk_m := CylinderMesh.new()
 	trunk_m.top_radius = 0.18
 	trunk_m.bottom_radius = 0.26
