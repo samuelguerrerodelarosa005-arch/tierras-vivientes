@@ -218,7 +218,7 @@ func _build_fp_arms() -> void:
 func _arm(side: float) -> Node3D:
 	var a := Node3D.new()
 	fp.add_child(a)
-	var imported_arm_path := "res://models/characters/player_arm.glb"
+	var imported_arm_path := "res://models/characters/player_arm.tscn"
 	if ResourceLoader.exists(imported_arm_path):
 		var packed_arm := load(imported_arm_path) as PackedScene
 		if packed_arm:
