@@ -3,43 +3,27 @@
 [sub_resource type="StandardMaterial3D" id="Sleeve"]
 albedo_color = Color(0.28, 0.16, 0.09, 1)
 roughness = 0.88
-
 [sub_resource type="StandardMaterial3D" id="Skin"]
 albedo_color = Color(0.72, 0.49, 0.32, 1)
 roughness = 0.8
-
 [sub_resource type="CapsuleMesh" id="Forearm"]
 radius = 0.085
 height = 0.42
 radial_segments = 8
 rings = 4
-
 [sub_resource type="SphereMesh" id="Hand"]
 radius = 0.105
 height = 0.18
 radial_segments = 8
 rings = 4
 
-[node name="PlayerArms" type="Node3D"]
-
-[node name="LeftSleeve" type="MeshInstance3D" parent="."]
-position = Vector3(-0.2, -0.29, 0.08)
+[node name="PlayerArm" type="Node3D"]
+[node name="Sleeve" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.01, 0.08)
 rotation = Vector3(1.57, 0, 0)
 mesh = SubResource("Forearm")
 surface_material_override/0 = SubResource("Sleeve")
-
-[node name="RightSleeve" type="MeshInstance3D" parent="."]
-position = Vector3(0.2, -0.29, 0.08)
-rotation = Vector3(1.57, 0, 0)
-mesh = SubResource("Forearm")
-surface_material_override/0 = SubResource("Sleeve")
-
-[node name="LeftHand" type="MeshInstance3D" parent="."]
-position = Vector3(-0.2, -0.48, -0.04)
-mesh = SubResource("Hand")
-surface_material_override/0 = SubResource("Skin")
-
-[node name="RightHand" type="MeshInstance3D" parent="."]
-position = Vector3(0.2, -0.48, -0.04)
+[node name="Hand" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.18, -0.04)
 mesh = SubResource("Hand")
 surface_material_override/0 = SubResource("Skin")
