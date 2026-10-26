@@ -21,7 +21,6 @@ var th: Theme
 var root: Control
 var hud: Control
 var refs := {}
-var ai_test_msg := ""   # resultado de «Probar la clave»
 var windows := {}
 var dirty := {}
 var menu_tab := "inv"
@@ -917,44 +916,17 @@ func _menu_settings(b: VBoxContainer) -> void:
 		main.toggle_seated()
 		mark("menu")
 	, Game.seated, 42)])
+	b.add_child(section("Gráficos"))
+	var qs: Array = []
+	for qi in 4:
+		qs.append(B(["Baja", "Media", "Alta", "Ultra"][qi], func():
+			_set_opt("quality", qi)
+			main.apply_quality()
+		, int(Game.settings.quality) == qi, 42))
+	_setting_row(b, "Calidad", qs)
+	b.add_child(L("Baja: sin sombras ni efectos. Ultra: sombras largas, oclusión ambiental, brillo y más resolución en VR. Si notas tirones en el visor, baja un nivel: en VR los tirones marean.", 14, C_MUTED))
 	b.add_child(section("IA de los habitantes"))
-	var has_key := str(Game.settings.api_key).strip_edges() != ""
-	b.add_child(L("Estado: " + ("clave guardada en este dispositivo." if has_key else "sin clave (usan frases de respaldo)."), 16, C_OK if has_key else C_MUTED))
-	if xr:
-		b.add_child(L("Para poner la clave, abre el juego en PC (Ajustes) o define tierras_vivas/ai/api_key en Proyecto → Configuración antes de exportar tu APK personal. No compartas un APK con tu clave dentro.", 15, C_MUTED))
-	else:
-		var le := LineEdit.new()
-		le.placeholder_text = "sk-ant-…"
-		le.secret = true
-		le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var save := B("Guardar", func():
-			if le.text.strip_edges() != "":
-				_set_opt("api_key", le.text.strip_edges())
-				Game.say("Clave guardada en este dispositivo.")
-		, false, 42)
-		save.size_flags_horizontal = Control.SIZE_SHRINK_END
-		save.custom_minimum_size.x = 120
-		var del := B("Borrar", func():
-			_set_opt("api_key", "")
-			Game.say("Clave borrada.")
-		, false, 42)
-		del.size_flags_horizontal = Control.SIZE_SHRINK_END
-		del.custom_minimum_size.x = 120
-		b.add_child(row([le, save, del]))
-		b.add_child(L("La clave se guarda solo en este dispositivo (user://). Úsala solo en tu propio equipo.", 13, C_BRASS))
-	if has_key:
-		var test := B("Probar la clave" if ai_test_msg != "…" else "Probando…", func():
-			if ai_test_msg == "…":
-				return
-			ai_test_msg = "…"
-			mark("menu")
-			ai_test_msg = await main.dialogue.test_key()
-			mark("menu")
-		, false, 42)
-		b.add_child(test)
-	var shown: String = ai_test_msg if ai_test_msg not in ["", "…"] else str(main.dialogue.last_error)
-	if shown != "":
-		b.add_child(L(shown, 15, C_OK if shown.begins_with("Funciona") else Color(1.0, 0.55, 0.45)))
+	b.add_child(L("Ahora los habitantes hablan con su guion. La IA local (en tu PC, sin pagar APIs) llegará en la fase 2.", 15, C_MUTED))
 	b.add_child(section("Partida"))
 	_setting_row(b, "Borrar la partida guardada", [B("Pulsa otra vez" if wipe_confirm else "Borrar", func():
 		if wipe_confirm:

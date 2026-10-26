@@ -722,7 +722,7 @@ func _update_diag() -> void:
 	if diag == null:
 		return
 	diag_t -= get_process_delta_time()
-	diag.visible = main.ui.is_open("creator")
+	diag.visible = main.ui.is_open("creator") and gaze_mode   # solo cuando no se detectan mandos ni manos
 	if not diag.visible or diag_t > 0.0:
 		return
 	diag_t = 0.25

@@ -232,6 +232,7 @@ func _terrain() -> void:
 	var mesh := st.commit()
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true   # los colores del suelo están pensados en sRGB (si no, salen lavados)
 	m.roughness = 1.0
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var mi := MeshInstance3D.new()

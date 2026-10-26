@@ -122,6 +122,7 @@ func _ready() -> void:
 		creator_cam.current = true
 		player.visible = false   # que los brazos en primera persona no salgan en la vista del creador
 	_init_tts()
+	apply_quality()
 	ui.open_creator()
 	if smoke:
 		_run_smoke()
@@ -164,13 +165,40 @@ func _build_environment() -> void:
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
-	sun.shadow_enabled = not xr
-	sun.directional_shadow_max_distance = 45.0
+	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 50.0
 	add_child(sun)
 	var mm := Util.mat(Color(0.91, 0.93, 0.99), Color(0, 0, 0, 0), 1.0, true).duplicate() as StandardMaterial3D
 	mm.set("disable_fog", true)
 	moon = Util.sphere(self, 9.0, mm, Vector3.ZERO, 16, 8)
 	moon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Calidad gráfica por niveles (Ajustes → Gráficos). 0 baja · 1 media · 2 alta · 3 ultra.
+## En VR un tirón marea, así que cada nivel recorta lo que más cuesta: sombras, MSAA,
+## oclusión ambiental, brillo, distancia de dibujado y resolución.
+const QUALITY := [
+	{"shadow": 0.0, "msaa": Viewport.MSAA_DISABLED, "ssao": false, "glow": false, "far": 250.0, "scale": 0.8},
+	{"shadow": 30.0, "msaa": Viewport.MSAA_2X, "ssao": false, "glow": false, "far": 400.0, "scale": 0.9},
+	{"shadow": 50.0, "msaa": Viewport.MSAA_4X, "ssao": false, "glow": true, "far": 700.0, "scale": 1.0},
+	{"shadow": 90.0, "msaa": Viewport.MSAA_4X, "ssao": true, "glow": true, "far": 900.0, "scale": 1.0},
+]
+
+
+func apply_quality() -> void:
+	var q: Dictionary = QUALITY[clampi(int(Game.settings.quality), 0, QUALITY.size() - 1)]
+	var vp := get_viewport()
+	vp.msaa_3d = q.msaa
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if float(q.scale) < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = q.scale
+	sun.shadow_enabled = float(q.shadow) > 0.0
+	sun.directional_shadow_max_distance = maxf(float(q.shadow), 10.0)
+	env.ssao_enabled = q.ssao
+	env.glow_enabled = q.glow
+	env.glow_intensity = 0.4
+	env.glow_bloom = 0.05
+	if player and player.camera:
+		player.camera.far = q.far
 
 
 func _build_hammer() -> void:
@@ -1510,6 +1538,9 @@ func _run_shots() -> void:
 	if dir == "":
 		dir = "user://shots"
 	DirAccess.make_dir_recursive_absolute(dir)
+	if OS.get_environment("SHOT_QUALITY") != "":
+		Game.settings.quality = int(OS.get_environment("SHOT_QUALITY"))
+		apply_quality()
 	await _wait(1.0)
 	get_viewport().get_texture().get_image().save_png(dir + "/creador.png")
 	start_game(false)
@@ -1558,8 +1589,7 @@ func _run_smoke() -> void:
 	start_game(false)
 	await _wait(0.6)
 	_check(Game.started and Game.max_hp == 120.0, "partida iniciada como Herrero (vida 120)", fails)
-	var e400: String = dialogue.explain_error(400, "invalid_request_error", "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.")
-	_check("saldo" in e400 and "console.anthropic.com" in e400, "error 400 de la IA explicado: sin saldo", fails)
+	_check(not dialogue.ai_enabled() and not "api_key" in Game.settings, "sin API de pago: diálogo con guion", fails)
 	var animated := 0
 	for n in npcs:
 		if n.body.model != null and n.body.anim != null and n.body.anim.is_playing() and n.body.cur_anim != "":

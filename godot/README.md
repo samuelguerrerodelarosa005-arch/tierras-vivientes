@@ -1,49 +1,52 @@
-# Tierras Vivas — Godot 4 (PC y Meta Quest 3/3S)
+# Tierras Vivas — Godot 4 (PC VR)
 
-Port del prototipo WebXR a Godot 4.8 con OpenXR. Mismo juego: pueblo de Valdeluz, 4 habitantes con
-agenda, memoria, afinidad y rumores; trabajos libres (principal + secundario); forja, comida, hechizos,
-limos, tienda, portal nocturno, Ruinas Lunares, títulos y fragmento de recuerdo al morir.
+RPG de realidad virtual para PC inspirado en Log Horizon y Overgeared. Plataforma actual: **solo PC VR**
+(Meta Link / Air Link y SteamVR), un jugador. El diseño completo está en el documento de diseño (GDD).
 
-Los habitantes, edificios, árboles y objetos usan modelos **KayKit** (Kay Lousberg, licencia **CC0**:
-uso libre, también comercial). Los habitantes vienen **con sus animaciones** (quieto, caminar, correr, saludar,
-hablar, martillar), así que ya no salen en pose T. El estilo es caricaturesco (cabeza grande), no realista.
-Lo que no tiene modelo (fuente, Santuario, portal, ruinas, limos) sigue hecho con primitivas.
+Pueblo de Valdeluz, 4 habitantes con agenda, memoria, afinidad y rumores; trabajos libres (principal + secundario);
+forja, comida, hechizos con gestos, limos, tienda, portal nocturno, Ruinas Lunares, títulos y fragmento de recuerdo.
 
-## 1. Abrirlo en tu PC
+Los habitantes, edificios, árboles y objetos usan modelos **KayKit** (Kay Lousberg, licencia **CC0**). Los habitantes
+vienen con sus animaciones. Lo que no tiene modelo (fuente, Santuario, portal, ruinas, limos) sigue con primitivas.
+
+## 1. Jugar desde Godot (para desarrollar)
 
 1. Descarga el repositorio (Code → Download ZIP) y descomprímelo.
 2. Abre `Godot_v4.8-beta1_win64.exe` → **Importar** → elige `godot/project.godot` → **Importar y editar**.
-3. Pulsa **F5**. Sin visor conectado arranca en modo PC.
+3. Elige cómo conectas el visor (abajo) y pulsa **F5**. Sin visor arranca en modo PC (teclado y ratón).
 
-Controles de PC: WASD moverte · Mayús correr · clic para fijar el ratón y lanzar hechizos · 1/2/3 hechizos ·
-E usar · F comer · clic derecho + dibujar = gesto propio · Espacio saltar · I inventario · R rumores · H controles · Esc cerrar.
+## 2. Conectar el visor
 
-## 2. Probarlo en el visor desde el PC (más rápido para iterar)
+El juego usa **OpenXR**, así que funciona con el sistema de VR que tengas marcado como «activo» en Windows.
 
-1. Conecta el Quest 3S con Quest Link (cable) o Air Link.
-2. En la app Meta Horizon Link del PC: Ajustes → General → **OpenXR Runtime → Establecer Meta Horizon Link como activo**.
-3. Pulsa **F5** en Godot con Link activo: el juego entra en VR solo.
+**Meta Quest (3, 3S, 2, Pro) con Meta Link** — recomendado para el Quest, porque las **manos** funcionan:
+1. Instala la app **Meta Horizon Link** en el PC.
+2. Conecta el visor con cable USB-C (**Link**) o por wifi de 5/6 GHz (**Air Link**, router cerca).
+3. En la app: Ajustes → General → **OpenXR Runtime → establecer Meta Horizon Link como activo**.
+4. Pulsa F5 en Godot (o abre el `.exe`): el juego entra en VR solo.
 
-## 3. Exportarlo como app (APK) para el Quest 3S
+**SteamVR** (Index, Vive, Pico, PS VR2 con adaptador, o Quest con Steam Link):
+1. Abre SteamVR → Ajustes → OpenXR → **establecer SteamVR como runtime de OpenXR**.
+2. Pulsa F5 o abre el `.exe`.
 
-Solo hay que hacerlo una vez:
+Mandos soportados: Quest Touch, Valve Index, HTC Vive, Windows Mixed Reality, Pico y el perfil genérico.
+Si el visor no da ni mandos ni manos, el juego pasa a **apuntar con la mirada**: mira un botón 1,4 s para pulsarlo.
 
-1. Instala **JDK 17** y **Android Studio** (para el Android SDK).
-2. En Godot: **Editor → Configuración del editor → Exportar → Android**: pon la ruta del Java SDK y del Android SDK.
-3. **Proyecto → Instalar plantilla de compilación de Android**.
-4. **AssetLib** (arriba en el editor) → busca **«Godot OpenXR Vendors»** → descargar e instalar →
-   **Proyecto → Configuración del proyecto → Plugins** → activa el plugin.
-5. **Proyecto → Exportar → Añadir… → Android** y configura:
-   - *Gradle Build → Use Gradle Build*: activado.
-   - *XR Features → XR Mode*: **OpenXR**.
-   - Activa la opción del plugin de **Meta** (aparece con el plugin de vendors instalado).
-   - *Meta XR Features → Hand Tracking*: **Optional** (o Required si solo quieres manos).
-   - *Architectures*: solo **arm64-v8a**.
-6. Pon el Quest en **modo desarrollador** (app Meta Horizon del móvil → Dispositivos → Modo de desarrollador) y conéctalo por USB.
-7. Pulsa el icono de **Android** (arriba a la derecha) para instalar y ejecutar en el visor, o exporta el APK
-   e instálalo con Meta Quest Developer Hub. Aparece en *Biblioteca → Orígenes desconocidos*.
+## 3. Jugar sin abrir Godot
 
-Los nombres exactos de algunas opciones pueden variar un poco en la 4.8-beta.
+Descarga `TierrasVivas-PCVR-win64.zip` (en las publicaciones del repositorio o donde te lo pase), descomprímelo y abre
+`TierrasVivas.exe` con el visor conectado como en el paso 2.
+
+## Calidad gráfica
+
+Menú → Ajustes → **Gráficos**: Baja · Media · Alta · Ultra. Cada nivel cambia sombras, antialiasing (MSAA), oclusión
+ambiental, brillo, distancia de dibujado y resolución. En VR un tirón marea: si lo notas, baja un nivel.
+
+## Standalone (Quest sin PC): más adelante
+
+La versión para el visor sin PC está en pausa. El proyecto conserva lo necesario para volver: la simulación vive aparte de
+los gráficos y en Android se usa el renderizador Compatibility (`rendering_method.mobile`). Para exportar un APK
+habrá que usar el plugin **Godot OpenXR Vendors** con *Gradle Build*.
 
 ## Controles en el visor
 
@@ -66,22 +69,17 @@ Los nombres exactos de algunas opciones pueden variar un poco en la 4.8-beta.
 
 ## IA de los habitantes
 
-Sin clave, los habitantes usan frases de respaldo. Con una clave de la API de Anthropic, Claude improvisa con
-la personalidad, memoria y rumores de cada uno (la misión y la recompensa las decide siempre el juego).
+Ahora hablan con su **guion**. No hay APIs de pago: la IA local (modelo de lenguaje, voces diseñadas y clonadas,
+reconocimiento de voz, todo en el PC del jugador) llega en la **fase 2**. El hueco ya está preparado:
+`dialogue.ai_provider` en `scripts/dialogue.gd`.
 
-- En PC: **Ajustes → IA de los habitantes** → pega la clave → Guardar → **Probar la clave**. Se guarda solo en ese equipo.
-- Si falla, Ajustes muestra el motivo. El más común es el **error 400 por falta de saldo**: la suscripción de Claude
-  (Pro/Max) **no incluye** la API; se paga aparte con crédito en console.anthropic.com → Billing.
-- En el visor: define `tierras_vivas/ai/api_key` en **Proyecto → Configuración del proyecto** antes de exportar.
-  Hazlo solo para tu APK personal y **no compartas ese APK**: la clave va dentro y se puede extraer.
-
-## Qué falta respecto a la web
+## Qué falta
 
 - **Hechizos por voz**: Godot no trae reconocimiento de voz. Hace falta un plugin (por ejemplo el Voice SDK de Meta
   o Whisper). Mientras tanto, los hechizos se lanzan con gesto, gatillo o teclas.
 - **Lanzamiento probado solo en simulación**: el umbral del gesto de lanzar (2,2 m/s, `THROW_SPEED` en
   `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
-- **Voces de los habitantes**: usan el texto a voz del sistema (Windows o Android). La calidad depende del dispositivo.
+- **Voces de los habitantes**: por ahora usan el texto a voz de Windows. Las voces con IA llegan en la fase 2.
 
 ## Gráficos y modelos
 
@@ -96,16 +94,16 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
 textura y **sin animaciones**. Godot no puede animar lo que el archivo no trae, por eso salía en pose T. Si quieres otro
 personaje, necesita el esqueleto **y** las animaciones (en el mismo `.glb` o en uno compatible).
 
-**Realista de verdad** en el Quest 3S (sin PC) es difícil: cada personaje realista pesa mucho más y el visor va justo.
-Si quieres ese estilo, la vía práctica es Mixamo (personaje + animaciones, cuenta gratuita de Adobe) exportado a `.glb`:
-se cambia la ruta en `MODELS` de `scripts/humanoid.gd` y los nombres de animación en `GEST_ANIM`.
+**Estilo final (fase 6)**: en PC se puede subir a un estilo más realista. La vía práctica para personajes es Mixamo
+(personaje + animaciones, cuenta gratuita de Adobe) exportado a `.glb`: se cambia la ruta en `MODELS` de
+`scripts/humanoid.gd` y los nombres de animación en `GEST_ANIM`.
 
 Capturas para revisar el aspecto sin visor: `godot --path godot -- --shots` (guarda PNG en `user://shots`).
 
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 35 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, guardado
+godot --headless --path godot -- --smoke   # 35 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, sin API de pago, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 ```
 
@@ -117,10 +115,11 @@ godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 | `scripts/game.gd` | Datos y estado global (autoload `Game`): trabajos, sinergias, misiones, títulos, guardado |
 | `scripts/player.gd` | Jugador en primera persona: PC, mandos y hand tracking (OpenXR) |
 | `scripts/npc.gd` + `scripts/data.gd` | Habitantes: agenda, rutas, visitas, memoria, afinidad, rumores |
-| `scripts/dialogue.gd` | Conversación (IA de Claude o guion de respaldo) |
+| `scripts/dialogue.gd` | Conversación con guion; hueco `ai_provider` para la IA local (fase 2) |
 | `scripts/ui.gd` + `scripts/panel3d.gd` | Interfaz de PC y paneles 3D clicables en VR |
 | `scripts/world.gd` | Construcción del pueblo, terreno, portal y ruinas |
 | `scripts/humanoid.gd` | Personajes: modelo KayKit animado (o primitivas) |
 | `scripts/slime.gd`, `scripts/sfx.gd`, `scripts/util.gd` | Limos, sonidos, utilidades |
 | `models/` | Modelos KayKit (CC0) con sus licencias |
 | `tools/preview_models.gd` | Pone modelos junto a una persona de 1,75 m para comprobar la escala |
+| `tools/add_pcvr_profiles.gd` | Añade al mapa de acciones los mandos de PC VR (Index, Vive, WMR) |

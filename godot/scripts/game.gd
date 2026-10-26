@@ -117,7 +117,7 @@ var stall: Array = []    # [{"key": String, "price": int, "node": Node3D}]
 var npcs := {}           # id -> nodo NPC (lo rellena main.gd)
 var world: Node = null   # main.gd
 var started := false
-var settings := {"tts": true, "api_key": "", "snap": 30, "vignette": true, "volume": 0.8}
+var settings := {"tts": true, "snap": 30, "vignette": true, "volume": 0.8, "quality": 2}   # quality: 0 baja … 3 ultra
 
 
 # ---------- trabajos ----------
@@ -437,8 +437,6 @@ func load_settings() -> void:
 	if cf.load(SETTINGS_PATH) == OK:
 		for k in settings:
 			settings[k] = cf.get_value("settings", k, settings[k])
-	if str(settings.api_key) == "":
-		settings.api_key = str(ProjectSettings.get_setting("tierras_vivas/ai/api_key", ""))
 	Sfx.set_volume(float(settings.volume))
 
 

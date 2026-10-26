@@ -9,8 +9,8 @@ Funciona en navegador de PC y en el Meta Quest 3/3S (botón «Entrar en VR»), c
 ## Publicar en Vercel
 Importa este repositorio en Vercel como sitio estático: Framework «Other», sin comando de build, carpeta de salida la raíz.
 
-## Versión Godot (PC y app para Quest 3S)
+## Versión Godot (PC VR) — la principal
 
-La carpeta `godot/` tiene el mismo juego portado a **Godot 4.8** con OpenXR: primera persona, mandos y hand tracking,
-física real y paneles VR clicables. Ábrela con Godot (Importar → `godot/project.godot`) y sigue `godot/README.md`
-para probarla en PC, por Quest Link o exportarla como APK al visor.
+La carpeta `godot/` es el juego en desarrollo: **Godot 4.8 para PC VR** (Meta Link / Air Link y SteamVR), un jugador.
+Ábrela con Godot (Importar → `godot/project.godot`) y sigue `godot/README.md`. La versión web de esta carpeta raíz
+queda como prototipo antiguo.
