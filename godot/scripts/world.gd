@@ -434,20 +434,33 @@ func _trees() -> void:
 	trunk_m.height = 2.2
 	trunk_m.radial_segments = 6
 	trunk_m.material = Util.mat(Util.hex("#5b3f28"))
-	var cone_m := CylinderMesh.new()
-	cone_m.top_radius = 0.0
-	cone_m.bottom_radius = 1.5
-	cone_m.height = 3.6
-	cone_m.radial_segments = 7
-	cone_m.material = Util.mat(Util.hex("#2f5a34"))
+	# Tres niveles de copa con verdes distintos: silueta más arbórea sin mallas individuales.
+	var foliage_meshes: Array[Mesh] = []
+	var foliage_specs := [
+		[1.55, 2.15, "#344d30", 2.55],
+		[1.28, 2.0, "#3d5a35", 3.25],
+		[0.92, 1.75, "#49643b", 3.95],
+	]
+	for spec in foliage_specs:
+		var fm := CylinderMesh.new()
+		fm.top_radius = 0.02
+		fm.bottom_radius = float(spec[0])
+		fm.height = float(spec[1])
+		fm.radial_segments = 8
+		fm.rings = 1
+		fm.material = Util.mat(Util.hex(str(spec[2])))
+		foliage_meshes.append(fm)
 	var mt := MultiMesh.new()
 	mt.transform_format = MultiMesh.TRANSFORM_3D
 	mt.mesh = trunk_m
 	mt.instance_count = pts.size()
-	var mc := MultiMesh.new()
-	mc.transform_format = MultiMesh.TRANSFORM_3D
-	mc.mesh = cone_m
-	mc.instance_count = pts.size()
+	var foliage_multimeshes: Array[MultiMesh] = []
+	for fm in foliage_meshes:
+		var fmm := MultiMesh.new()
+		fmm.transform_format = MultiMesh.TRANSFORM_3D
+		fmm.mesh = fm
+		fmm.instance_count = pts.size()
+		foliage_multimeshes.append(fmm)
 	var col := StaticBody3D.new()
 	add_child(col)
 	for i in pts.size():
@@ -456,7 +469,10 @@ func _trees() -> void:
 		var s := randf_range(0.8, 1.4)
 		var b := Basis(Vector3.UP, randf() * TAU).scaled(Vector3(s, s, s))
 		mt.set_instance_transform(i, Transform3D(b, Vector3(p.x, y + 1.1 * s, p.y)))
-		mc.set_instance_transform(i, Transform3D(b, Vector3(p.x, y + 3.8 * s, p.y)))
+		for layer in foliage_multimeshes.size():
+			var spec: Array = foliage_specs[layer]
+			var layer_y := y + float(spec[3]) * s
+			foliage_multimeshes[layer].set_instance_transform(i, Transform3D(b, Vector3(p.x, layer_y, p.y)))
 		if p.length() < 90.0:
 			var cs := CollisionShape3D.new()
 			var cy := CylinderShape3D.new()
@@ -465,7 +481,9 @@ func _trees() -> void:
 			cs.shape = cy
 			cs.position = Vector3(p.x, y + 1.5, p.y)
 			col.add_child(cs)
-	for m in [mt, mc]:
+	var all_multimeshes: Array[MultiMesh] = [mt]
+	all_multimeshes.append_array(foliage_multimeshes)
+	for m in all_multimeshes:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = m
 		add_child(mmi)
