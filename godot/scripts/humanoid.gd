@@ -18,12 +18,32 @@ var gest_t := 0.0
 var talk := false
 var look_yaw := 0.0
 var height := 1.75
+var imported_model: Node3D
+var imported_anim_player: AnimationPlayer
+var imported_animation := ""
 
 
 func build(o: Dictionary) -> void:
-	for c in get_children():
-		remove_child(c)
-		c.queue_free()
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	imported_model = null
+	imported_anim_player = null
+	imported_animation = ""
+	torso = null
+	var model_path := "res://models/characters/villager.glb"
+	if ResourceLoader.exists(model_path):
+		var packed_model := load(model_path) as PackedScene
+		if packed_model:
+			imported_model = packed_model.instantiate() as Node3D
+			if imported_model:
+				imported_model.name = "ImportedVillager"
+				add_child(imported_model)
+				imported_model.scale = Vector3.ONE * float(o.get("model_scale", 1.0))
+				imported_anim_player = _find_animation_player(imported_model)
+				height = float(o.get("height", 1.75))
+				scale = Vector3.ONE * (height / 1.75)
+				return
 	var b: float = float(o.get("build", 1.0))
 	height = float(o.get("height", 1.75))
 	var m_skin := Util.mat(Color.html(str(o.skin)))
@@ -109,7 +129,39 @@ func build(o: Dictionary) -> void:
 	scale = Vector3.ONE * (height / 1.85)
 
 
+func _find_animation_player(root: Node) -> AnimationPlayer:
+	if root is AnimationPlayer:
+		return root as AnimationPlayer
+	for child in root.get_children():
+		var found := _find_animation_player(child)
+		if found:
+			return found
+	return null
+
+
+func _play_imported_animation(candidates: Array[String]) -> void:
+	if imported_anim_player == null:
+		return
+	for candidate in candidates:
+		if imported_anim_player.has_animation(candidate):
+			if imported_animation != candidate:
+				imported_anim_player.play(candidate)
+				imported_animation = candidate
+			return
+
+
 func animate(dt: float, speed: float, t: float) -> void:
+	if imported_model != null:
+		if gest_t > 0.0:
+			gest_t -= dt
+			match gest:
+				"saludar": _play_imported_animation(["Wave", "wave", "Salute", "salute", "Talk", "talk"])
+				"hablar": _play_imported_animation(["Talk", "talk", "Idle", "idle"])
+				"pensar": _play_imported_animation(["Think", "think", "Idle", "idle"])
+				_: _play_imported_animation(["Walk", "walk", "Idle", "idle"] if speed > 0.1 else ["Idle", "idle"])
+		else:
+			_play_imported_animation(["Walk", "walk", "Run", "run"] if speed > 0.1 else ["Idle", "idle"])
+		return
 	if torso == null:
 		return
 	phase += dt * speed * 3.4
