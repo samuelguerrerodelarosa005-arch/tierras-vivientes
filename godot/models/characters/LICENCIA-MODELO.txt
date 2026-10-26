@@ -1,0 +1,7 @@
+Modelo humanoide: Quaternius — Universal Base Characters (Superhero Male), distribuido en el repositorio programasweights/avatar.
+
+Licencia: Creative Commons Zero v1.0 Universal (CC0 1.0).
+El autor ha renunciado a los derechos de autor y derechos conexos en la medida permitida por la ley. Se puede copiar, modificar, distribuir y usar el modelo, incluso comercialmente, sin pedir permiso ni atribución. La atribución es apreciada pero no obligatoria.
+
+Texto legal completo: https://creativecommons.org/publicdomain/zero/1.0/
+Fuente del archivo: https://github.com/programasweights/avatar/tree/main/public/assets
