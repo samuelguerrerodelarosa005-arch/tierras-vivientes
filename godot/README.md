@@ -82,7 +82,8 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
 ## Mejora visual y modelos 3D
 
 La rama `visual-realista-quest3s` incluye una primera pasada de iluminación, paleta naturalista, entramado de madera y piedra,
-árboles por capas y detalles de vestuario/rostro. Las casas también tienen un punto de integración para modelos GLB.
+árboles por capas y detalles de vestuario/rostro. El código tiene puntos de integración para casas, árboles, habitantes, brazos del jugador
+en PC y enemigos mediante modelos GLB opcionales.
 
 ### Añadir modelos externos
 
@@ -94,9 +95,7 @@ La rama `visual-realista-quest3s` incluye una primera pasada de iluminación, pa
 4. Los habitantes siguen usando `scripts/humanoid.gd`. Para convertirlos a personajes realistas hace falta un GLB riggeado con
    animaciones compatibles y adaptar `animate()`; no reemplaces el archivo por un modelo estático o se romperán sus gestos.
 
-**Estado honesto:** este repositorio no incluye todavía archivos de modelos GLB realistas. Los cambios preparan el punto de carga
-y documentan cómo integrarlos, pero todavía hace falta elegir/importar assets con licencia comprobada y ejecutar una prueba en Godot
-y Quest 3S antes de considerar la mejora terminada.
+**Estado honesto:** los cargadores están implementados, pero los archivos binarios GLB todavía no están incluidos en el repositorio. Las fuentes sugeridas y rutas exactas están en `models/README.md`. Los packs enlazados son estilizados/low-poly (no fotorrealistas). Después de importar los GLB, ejecuta la prueba automática y verifica en Godot y Quest 3S antes de considerar la mejora terminada.
 
 ## Prueba automática
 
