@@ -43,9 +43,21 @@ func build(o: Dictionary) -> void:
 
 	torso = Util.capsule(self, 0.2 * b, 0.42, m_out, Vector3(0, 1.24, 0))
 	torso.scale.z = 0.72
-	Util.cyl(self, 0.205 * b, 0.205 * b, 0.09, Util.mat(Color.html("#3a2a1e")), Vector3(0, 0.98, 0))
+	# Capas discretas de ropa para romper la silueta de una sola cápsula.
+	var m_leather := Util.mat(Color.html("#493626"))
+	var m_stitch := Util.mat(Color.html(str(o.outfit)).darkened(0.18))
+	Util.cyl(self, 0.205 * b, 0.205 * b, 0.09, m_leather, Vector3(0, 0.98, 0), 12)
+	Util.box(self, Vector3(0.39 * b, 0.12, 0.025), m_leather, Vector3(0, 1.08, 0.151 * b))
+	Util.box(self, Vector3(0.035 * b, 0.30, 0.018), m_stitch, Vector3(-0.105 * b, 1.28, 0.147 * b))
+	Util.box(self, Vector3(0.035 * b, 0.30, 0.018), m_stitch, Vector3(0.105 * b, 1.28, 0.147 * b))
+	# Cuello y hombros suavizan la transición entre torso y brazos.
+	Util.cyl(self, 0.105 * b, 0.12, 0.08, m_leather, Vector3(0, 1.51, 0), 12)
+	Util.sphere(self, 0.09 * b, m_out, Vector3(-0.245 * b, 1.45, 0), 8, 5)
+	Util.sphere(self, 0.09 * b, m_out, Vector3(0.245 * b, 1.45, 0), 8, 5)
 	if o.get("apron", false):
-		Util.box(self, Vector3(0.34 * b, 0.55, 0.02), Util.mat(Color.html("#f2ede2")), Vector3(0, 1.05, 0.16 * b))
+		var apron_m := Util.mat(Color.html("#d9d0bb"))
+		Util.box(self, Vector3(0.34 * b, 0.55, 0.025), apron_m, Vector3(0, 1.05, 0.16 * b))
+		Util.box(self, Vector3(0.36 * b, 0.045, 0.035), m_leather, Vector3(0, 1.31, 0.18 * b))
 
 	arm_l = Node3D.new()
 	arm_r = Node3D.new()
@@ -60,12 +72,17 @@ func build(o: Dictionary) -> void:
 	head = Node3D.new()
 	head.position = Vector3(0, 1.75, 0)
 	add_child(head)
-	var skull := Util.sphere(head, 0.135, m_skin, Vector3.ZERO, 14, 8)
+	var skull := Util.sphere(head, 0.135, m_skin, Vector3.ZERO, 16, 10)
 	skull.scale.y = 1.1
-	var m_eye := Util.mat(Color.html("#15100c"))
-	Util.sphere(head, 0.018, m_eye, Vector3(-0.048, 0.02, 0.122), 6, 3)
-	Util.sphere(head, 0.018, m_eye, Vector3(0.048, 0.02, 0.122), 6, 3)
-	mouth = Util.box(head, Vector3(0.06, 0.012, 0.01), Util.mat(Color.html("#5a2a24")), Vector3(0, -0.055, 0.128))
+	var m_eye := Util.mat(Color.html("#211b16"))
+	var m_brow := Util.mat(Color.html(str(o.hair)).darkened(0.12))
+	Util.sphere(head, 0.018, m_eye, Vector3(-0.048, 0.02, 0.122), 8, 4)
+	Util.sphere(head, 0.018, m_eye, Vector3(0.048, 0.02, 0.122), 8, 4)
+	Util.box(head, Vector3(0.045, 0.009, 0.012), m_brow, Vector3(-0.048, 0.049, 0.121))
+	Util.box(head, Vector3(0.045, 0.009, 0.012), m_brow, Vector3(0.048, 0.049, 0.121))
+	# Nariz muy sutil, para que el rostro no parezca una esfera lisa.
+	Util.sphere(head, 0.018, m_skin, Vector3(0, -0.018, 0.132), 8, 4)
+	mouth = Util.box(head, Vector3(0.05, 0.009, 0.01), Util.mat(Color.html("#693c32")), Vector3(0, -0.055, 0.128))
 
 	var hs := str(o.get("hair_style", "corto"))
 	if hs == "rapado":
