@@ -218,6 +218,19 @@ func _build_fp_arms() -> void:
 func _arm(side: float) -> Node3D:
 	var a := Node3D.new()
 	fp.add_child(a)
+	var imported_arm_path := "res://models/characters/player_arm.glb"
+	if ResourceLoader.exists(imported_arm_path):
+		var packed_arm := load(imported_arm_path) as PackedScene
+		if packed_arm:
+			var imported_arm := packed_arm.instantiate() as Node3D
+			if imported_arm:
+				a.add_child(imported_arm)
+				imported_arm.scale = Vector3.ONE * 0.72
+				if side < 0.0:
+					imported_arm.rotation.y = PI
+				a.position = Vector3(side * 0.24, -0.3, -0.38)
+				a.rotation.y = -side * 0.12
+				return a
 	var outfit := Util.mat(Color.html(str(Game.look.outfit)))
 	var skin := _skin_mat()
 	var sl := Util.capsule(a, 0.048, 0.36, outfit, Vector3(0, 0, 0.14))
