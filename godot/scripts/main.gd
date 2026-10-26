@@ -1322,6 +1322,9 @@ func _process(delta: float) -> void:
 			save_t = 20.0
 			Game.save_game()
 	else:
+		if xr:
+			# antes de empezar (creador de personaje) también hay que leer mandos/manos y apuntar
+			player.xr_menu_frame(dt)
 		if creator_cam:
 			creator_ang += dt * 0.25
 			var c := avatar.position

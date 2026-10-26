@@ -32,8 +32,9 @@ common/physics_ticks_per_second=72
 [rendering]
 
 renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/msaa_3d=1
 
 [tierras_vivas]
 
@@ -42,8 +43,8 @@ ai/api_key=""
 [xr]
 
 openxr/enabled=true
-openxr/foveation_level=3
-openxr/foveation_dynamic=true
+openxr/foveation_level=0
+openxr/foveation_dynamic=false
 openxr/startup_alert=false
 openxr/extensions/hand_tracking=true
 openxr/extensions/hand_interaction_profile=true

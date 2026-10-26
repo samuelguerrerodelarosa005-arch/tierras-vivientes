@@ -33,6 +33,13 @@ var seat_offset := 0.45
 var vignette_mat: ShaderMaterial
 var ray_root: Node3D
 var ray_dot: MeshInstance3D
+# respaldo si el visor no da mandos ni manos: apuntar con la mirada y mantenerla 1,4 s para pulsar
+var gaze_mode := false
+var dwell_t := 0.0
+var dwell_px := Vector2.ZERO
+var dwell_host: Node = null
+var diag: Label3D
+var diag_t := 0.0
 var tp_ring: MeshInstance3D
 var tp_target = null
 var tp_active := false
@@ -181,6 +188,13 @@ func _build_xr_helpers() -> void:
 	line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ray_dot = Util.sphere(main, 0.015, Util.mat(Color(1, 1, 1), Color(1, 1, 1), 1.0, true), Vector3.ZERO, 8, 4)
 	ray_dot.visible = false
+	# diagnóstico de entrada VR (se ve mientras está abierto el creador)
+	diag = Util.label3d("", 22, Color(0.85, 0.95, 1.0), true)
+	diag.position = Vector3(0, -0.36, -0.6)
+	diag.pixel_size = 0.0006
+	diag.width = 1100.0
+	diag.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	camera.add_child(diag)
 	# anillo de teletransporte
 	var tm := Util.mat(Color(0.42, 0.79, 0.9), Color(0.42, 0.79, 0.9), 1.0, true, 0.85)
 	tp_ring = Util.torus(main, 0.28, 0.04, tm, Vector3.ZERO)
@@ -532,6 +546,13 @@ func ray(side: String) -> Array:
 
 # ---------- bucle VR (lo llama main en _process) ----------
 
+## Menús antes de empezar la partida: solo leer la entrada y apuntar a los paneles.
+func xr_menu_frame(delta: float) -> void:
+	for side in SIDES:
+		_read_pad(side, delta)
+	_update_hands()
+	_pointer(pads.right)
+
 func xr_frame(delta: float) -> void:
 	for side in SIDES:
 		_read_pad(side, delta)
@@ -689,7 +710,45 @@ func cast_from_left(power: float) -> void:
 	main.cast_spell(Game.spell, o + d * 0.15, d, power)
 
 
+## ¿Esta mano/mando da una posición válida para apuntar?
+func pointer_valid(side: String) -> bool:
+	if pads[side].hand:
+		var ht := _tracker(side)
+		return ht != null and ht.has_tracking_data
+	return ctrl[side].get_has_tracking_data()
+
+
+func _update_diag() -> void:
+	if diag == null:
+		return
+	diag_t -= get_process_delta_time()
+	diag.visible = main.ui.is_open("creator")
+	if not diag.visible or diag_t > 0.0:
+		return
+	diag_t = 0.25
+	var parts := []
+	for side in SIDES:
+		var c: XRController3D = ctrl[side]
+		var tr := XRServer.get_tracker(c.tracker) as XRPositionalTracker
+		var ht := _tracker(side)
+		parts.append("%s: mando %s (%s) · mano %s · gatillo %s" % [
+			"Izq" if side == "left" else "Der",
+			"sí" if c.get_has_tracking_data() else "no",
+			(str(tr.profile).get_file() if tr and str(tr.profile) != "" else "sin perfil"),
+			"sí" if ht and ht.has_tracking_data else "no",
+			"SÍ" if pads[side].trig else "no"])
+	parts.append("Modo: " + ("MIRADA (mira un botón 1,4 s para pulsarlo)" if gaze_mode else "rayo"))
+	diag.text = "\n".join(parts)
+
+
+var dwell_release: Node = null
+
+
 func _pointer(R: Dictionary) -> void:
+	_update_diag()
+	if dwell_release and is_instance_valid(dwell_release):
+		dwell_release.press(false)
+	dwell_release = null
 	if not ready_spell.is_empty() and ready_spell.side == "right":
 		# la mano derecha sostiene el hechizo: el láser de puntería sustituye al rayo normal
 		if hover_host:
@@ -700,9 +759,23 @@ func _pointer(R: Dictionary) -> void:
 		main.show_target({})
 		return
 	ray_root.visible = true
-	var rd := ray("right")
-	var o: Vector3 = rd[0]
-	var d: Vector3 = rd[1]
+	# apunta la derecha; si no da posición, la izquierda; si ninguna, la mirada
+	var ps := "right" if pointer_valid("right") else ("left" if pointer_valid("left") else "")
+	var was_gaze := gaze_mode
+	gaze_mode = ps == ""
+	if gaze_mode and not was_gaze:
+		main.vr_toast("No detecto mandos ni manos: apunta con la mirada y mantenla 1,4 s sobre un botón.")
+	var o: Vector3
+	var d: Vector3
+	if gaze_mode:
+		o = camera.global_position
+		d = -camera.global_transform.basis.z
+	else:
+		var rd := ray(ps)
+		o = rd[0]
+		d = rd[1]
+		R = pads[ps]
+	ray_root.visible = not gaze_mode   # con la mirada solo se ve el punto
 	var hit: Dictionary = main.panel_hit(o, d)
 	if hover_host and (hit.is_empty() or hit.host != hover_host):
 		hover_host.pointer_exit()
@@ -715,9 +788,24 @@ func _pointer(R: Dictionary) -> void:
 		length = hit.dist
 		ray_dot.visible = true
 		ray_dot.global_position = hit.point
+		ray_dot.scale = Vector3.ONE
+		if gaze_mode:
+			if hit.host == dwell_host and (hit.px as Vector2).distance_to(dwell_px) < 16.0:
+				if dwell_t >= 0.0:
+					dwell_t += get_process_delta_time()
+			else:
+				dwell_host = hit.host
+				dwell_px = hit.px
+				dwell_t = 0.0
+			ray_dot.scale = Vector3.ONE * (1.0 + maxf(dwell_t, 0.0) * 2.5)
+			if dwell_t > 1.4:
+				hover_host.press(true)
+				dwell_release = hover_host   # se suelta en el siguiente fotograma
+				Sfx.play("ui")
+				dwell_t = -1.0   # no repetir hasta mirar otro sitio
 	else:
 		ray_dot.visible = false
-		if not tp_active:
+		if not tp_active and Game.started:
 			target = main.pick_interactable(o, d)
 	var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.98 else Vector3.FORWARD
 	ray_root.global_transform = Transform3D(Basis.looking_at(d, up), o)
@@ -733,7 +821,7 @@ func _pointer(R: Dictionary) -> void:
 		elif not target.is_empty() and main.dialogue.npc == null:
 			target.act.call()
 			main.buzz("right", 0.4, 0.03)
-		elif R.hand and main.dialogue.npc == null and main.eat.held == null:
+		elif R.hand and Game.started and main.dialogue.npc == null and main.eat.held == null:
 			tp_active = true
 	if R.trig_up:
 		if press_host and is_instance_valid(press_host):
