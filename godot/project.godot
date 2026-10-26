@@ -41,7 +41,7 @@ ai/api_key=""
 
 [xr]
 
-openxr/enabled=true
+openxr/enabled=false
 openxr/foveation_level=3
 openxr/foveation_dynamic=true
 openxr/startup_alert=false
