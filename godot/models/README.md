@@ -18,9 +18,19 @@ Copia/exporta modelos glTF/GLB a estas rutas dentro de `godot/`:
 
 - `models/environment/medieval_house.glb` — modelo de casa usado por el constructor de casas.
 - `models/environment/tree_oak.glb` — árbol para los puntos cercanos; el bosque lejano sigue usando MultiMesh.
-- `models/characters/villager.glb` — personaje con rig y animaciones opcionales.
+- `models/characters/villager.glb` — personaje humanoide con rig y animaciones opcionales, usado por habitantes.
+- `models/characters/player_arm.glb` — brazo/antebrazo con mano, orientado para primera persona; se usa en PC si existe.
+- `models/characters/enemy_slime.glb` — enemigo con escala aproximada de 1 m; puede incluir clips `Idle`, `Walk`, `Run` o `Jump`.
 
 Los directorios `environment/` y `characters/` se pueden crear al importar los modelos. No basta con copiar el ZIP del pack: hay que localizar el modelo, exportarlo a GLB si viene en otro formato y copiarlo a la ruta esperada.
+
+## Modelos de personajes y enemigos sugeridos
+
+- **Habitantes/jugador humanoide:** [Modular Character Outfits — Fantasy](https://quaternius.itch.io/modular-character-outfits-fantasy) y los Universal Base Characters de Quaternius. Exporta una figura completa riggeada a `villager.glb`. Para el brazo de primera persona exporta solo brazo y mano, con el origen en la muñeca, a `player_arm.glb`. La ropa modular y los personajes usan licencia CC0 según la ficha del paquete.
+- **Enemigos:** [Bestiary — Dungeon Monsters Kit](https://quaternius.itch.io/bestiary-dungeon-monsters-kit) contiene 7 monstruos riggeados con variantes de color, pero no incluye animaciones. Puedes usar un monstruo como enemigo en vez del limo, exportándolo como `enemy_slime.glb`; si no tiene clips, el código conserva el salto procedural del enemigo mientras usa el modelo.
+- **Casas/entorno:** [Medieval Village MegaKit](https://quaternius.com/packs/medievalvillagemegakit.html) y [Stylized Nature MegaKit](https://quaternius.com/). Son assets estilizados de bajo poligonaje, no fotorrealismo.
+
+Los enlaces son fuentes oficiales; descarga el paquete tú mismo y conserva su licencia. Los archivos binarios no se han incluido en este repositorio todavía.
 
 ## Importación recomendada
 
