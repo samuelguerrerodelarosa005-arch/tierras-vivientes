@@ -1,7 +1,8 @@
 extends Node3D
 ## Construye Valdeluz con primitivas: terreno con colisión, plaza, panadería, forja, taberna,
 ## granja, Santuario, puesto del jugador, rocas de hierro, portal, bosque y Ruinas Lunares.
-## Para cambiar el arte, sustituye estas primitivas por modelos .glb en las mismas posiciones.
+## Los edificios, árboles y objetos usan los modelos de models/village (KayKit Medieval, CC0);
+## si un archivo falta, se dibuja la versión con primitivas en el mismo sitio.
 
 const Util = preload("res://scripts/util.gd")
 
@@ -24,6 +25,10 @@ var ruins_portal := Vector3(Util.RX, 0, 14)
 var moon_crystal: MeshInstance3D
 var sanct_crystal: MeshInstance3D
 var anvil_ring: MeshInstance3D
+
+const V := "res://models/village/"
+const S_BUILD := 7.0   # escala de los edificios KayKit (vienen en miniatura)
+const S_PROP := 4.5    # escala de barriles, cajas, rocas…
 
 const PORTAL_SHADER := """
 shader_type spatial;
@@ -59,12 +64,138 @@ func build() -> void:
 	_farm()
 	_sanctuary()
 	_stall()
-	_house(24, -4, 5, 5, 2.8, "#b9b2a6", "#4c5560", "-x")  # casa de Dorran
+	if _building("building_home_B_blue", 24, -4, "-x", S_BUILD * 0.8).is_empty():
+		_house(24, -4, 5, 5, 2.8, "#b9b2a6", "#4c5560", "-x")  # casa de Dorran
 	_apple_tree()
 	_ores()
 	_portal()
+	_props()
 	_trees()
 	_ruins()
+
+
+# ---------- modelos ----------
+
+static func _bounds(n: Node, xf: Transform3D, acc: Array) -> void:
+	var t := xf
+	if n is Node3D:
+		t = xf * (n as Node3D).transform
+	if n is VisualInstance3D and (n as Node3D).visible:
+		var a: AABB = t * (n as VisualInstance3D).get_aabb()
+		acc[0] = a if acc[0] == null else (acc[0] as AABB).merge(a)
+	for c in n.get_children():
+		_bounds(c, t, acc)
+
+
+## Coloca un modelo con su base en el suelo y centrado en (x, z). Devuelve el nodo y su caja en el mundo.
+func _place(file: String, x: float, z: float, rot_y: float, sc: Variant, y: float = INF) -> Dictionary:
+	var path := V + file + ".gltf"
+	if not ResourceLoader.exists(path):
+		return {}
+	var ps := load(path) as PackedScene
+	if ps == null:
+		return {}
+	var holder := Node3D.new()
+	add_child(holder)
+	var inst := ps.instantiate() as Node3D
+	holder.add_child(inst)
+	inst.scale = sc if sc is Vector3 else Vector3.ONE * float(sc)
+	var acc := [null]
+	_bounds(inst, Transform3D.IDENTITY, acc)
+	var a: AABB = acc[0] if acc[0] != null else AABB()
+	var c := a.get_center()
+	inst.position = Vector3(-c.x, -a.position.y, -c.z)
+	holder.rotation.y = rot_y
+	holder.position = Vector3(x, Util.terrain_h(x, z) if y == INF else y, z)
+	if a.size.y < 1.2:
+		for mi in inst.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var acc2 := [null]
+	_bounds(holder, Transform3D.IDENTITY, acc2)
+	return {"node": holder, "aabb": acc2[0]}
+
+
+## Edificio de KayKit con colisión de su tamaño. door = hacia dónde mira la puerta.
+func _building(file: String, cx: float, cz: float, door: String, sc: float) -> Dictionary:
+	var rot: float = {"+z": 0.0, "-z": PI, "+x": PI * 0.5, "-x": -PI * 0.5}[door]
+	var r := _place(file, cx, cz, rot, sc, 0.0)
+	if r.is_empty():
+		return r
+	var a: AABB = r.aabb
+	Util.col_box(self, Vector3(a.size.x * 0.92, a.size.y, a.size.z * 0.92), a.get_center())
+	return r
+
+
+## Varias copias de un modelo como MultiMesh (barato para el Quest). xforms: Array de Transform3D.
+func _multi(file: String, xforms: Array, shadows: bool = true) -> bool:
+	var path := V + file + ".gltf"
+	if not ResourceLoader.exists(path) or xforms.is_empty():
+		return false
+	var inst := (load(path) as PackedScene).instantiate()
+	var mis := inst.find_children("*", "MeshInstance3D", true, false)
+	if mis.is_empty():
+		inst.free()
+		return false
+	var src := mis[0] as MeshInstance3D
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = src.mesh
+	mm.instance_count = xforms.size()
+	var local := src.transform
+	for i in xforms.size():
+		mm.set_instance_transform(i, (xforms[i] as Transform3D) * local)
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	if not shadows:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	inst.free()
+	return true
+
+
+func _props() -> void:
+	# junto a la taberna
+	for p in [[10.0, 8.6, 0.3], [10.7, 9.3, 1.2], [17.9, 8.9, 0.0]]:
+		_place("barrel", p[0], p[1], p[2], S_PROP)
+	_place("crate_A_big", 18.2, 10.2, 0.4, S_PROP)
+	# panadería: sacos de harina y cajas
+	_place("crate_open", -18.2, -9.6, 0.2, S_PROP)
+	_place("crate_A_big", -18.0, -11.0, 0.8, S_PROP)
+	for i in 3:
+		_place("sack", -11.0 + i * 0.55, -8.9, randf() * TAU, S_PROP * 1.3)
+	# forja: madera y el armero
+	_place("resource_lumber", 18.4, -10.6, 1.4, S_PROP)
+	_place("weaponrack", 10.6, -11.2, 0.0, S_PROP * 1.3)
+	_place("crate_long_A", 16.8, -9.0, 0.2, S_PROP)
+	# granja
+	_place("wheelbarrow", -22.6, 5.0, 2.2, S_PROP)
+	_place("pallet", -21.4, 11.0, 0.5, S_PROP)
+	_place("bucket_water", 8.3, -0.2, 0.0, S_PROP)
+	# pozo en la plaza y molino junto al trigo
+	var w := _place("building_well_blue", 9.0, -1.2, -PI * 0.5, S_BUILD * 0.55, 0.0)
+	if not w.is_empty():
+		Util.col_cyl(self, 1.4, 2.0, Vector3(9.0, 1.0, -1.2))
+	var m := _place("building_windmill_yellow", -45.0, 14.0, PI * 0.5, S_BUILD)
+	if not m.is_empty():
+		var a: AABB = m.aabb
+		Util.col_box(self, Vector3(a.size.x * 0.6, a.size.y, a.size.z * 0.6), a.get_center())
+	# rocas sueltas por el campo
+	var rx := []
+	var guard := 0
+	while rx.size() < 36 and guard < 500:
+		guard += 1
+		var ang := randf() * TAU
+		var rr := randf_range(22.0, 120.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		if Util.in_field(x, z) or Vector2(x - portal_pos.x, z - portal_pos.z).length() < 7.0:
+			continue
+		var s := randf_range(3.0, 7.0)
+		rx.append(Transform3D(Basis(Vector3.UP, randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, Util.terrain_h(x, z) - 0.05, z)))
+	var third := rx.size() / 3
+	_multi("rock_single_A", rx.slice(0, third), false)
+	_multi("rock_single_C", rx.slice(third, third * 2))
+	_multi("rock_single_E", rx.slice(third * 2))
 
 
 func set_night(night: float) -> void:
@@ -118,9 +249,9 @@ func _terrain() -> void:
 
 func _ground_color(x: float, z: float) -> Color:
 	var nn := sin(x * 0.31) * sin(z * 0.27) * 0.5 + sin(x * 0.11 + z * 0.07) * 0.5
-	var r := 0.33 + nn * 0.05
-	var g := 0.5 + nn * 0.07
-	var b := 0.24 + nn * 0.03
+	var r := 0.34 + nn * 0.05
+	var g := 0.56 + nn * 0.07
+	var b := 0.2 + nn * 0.03
 	var pd := 99.0
 	for s in PATHS:
 		pd = minf(pd, Util.seg_dist(x, z, s[0], s[1], s[2], s[3]))
@@ -131,7 +262,7 @@ func _ground_color(x: float, z: float) -> Color:
 	var rr := sqrt(x * x + z * z)
 	if rr > 60.0:
 		var k := Util.smooth(60.0, 140.0, rr)
-		r = lerpf(r, 0.27, k); g = lerpf(g, 0.42, k); b = lerpf(b, 0.25, k)
+		r = lerpf(r, 0.25, k); g = lerpf(g, 0.46, k); b = lerpf(b, 0.2, k)
 	return Color(r, g, b)
 
 
@@ -159,7 +290,7 @@ func _house(cx: float, cz: float, w: float, d: float, h: float, wall: String, ro
 
 func _plaza() -> void:
 	var stone := Util.mat(Util.hex("#9a978d"))
-	var floor_m := Util.cyl(self, 10.0, 10.0, 0.04, Util.mat(Util.hex("#8b8a84")), Vector3(0, 0.02, 0), 48)
+	var floor_m := Util.cyl(self, 10.0, 10.0, 0.04, Util.mat(Util.hex("#b3a690")), Vector3(0, 0.02, 0), 48)
 	floor_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	Util.cyl(self, 2.2, 2.4, 0.6, stone, Vector3(0, 0.3, 0), 24)
 	var wm := StandardMaterial3D.new()
@@ -183,11 +314,13 @@ func _plaza() -> void:
 
 
 func _bakery() -> void:
-	_house(-14, -12, 8, 6, 3.4, "#e6d6b8", "#9c4a2c", "+z")
-	Util.box(self, Vector3(3, 1, 1), Util.mat(Util.hex("#7a5634")), Vector3(-14, 0.5, -7.6))
-	Util.col_box(self, Vector3(3, 1, 1), Vector3(-14, 0.5, -7.6))
+	if _building("building_home_A_red", -14, -12.3, "+z", S_BUILD * 1.05).is_empty():
+		_house(-14, -12, 8, 6, 3.4, "#e6d6b8", "#9c4a2c", "+z")
+	# mostrador bajo: los habitantes de KayKit son de cabeza grande y hombros bajos
+	Util.box(self, Vector3(3, 0.8, 1), Util.mat(Util.hex("#7a5634")), Vector3(-14, 0.4, -7.6))
+	Util.col_box(self, Vector3(3, 0.8, 1), Vector3(-14, 0.4, -7.6))
 	for i in 4:
-		var b := Util.capsule(self, 0.12, 0.22, Util.mat(Util.hex("#c98a43")), Vector3(-15 + i * 0.65, 1.12, -7.6))
+		var b := Util.capsule(self, 0.1, 0.2, Util.mat(Util.hex("#c98a43")), Vector3(-15 + i * 0.65, 0.9, -7.6))
 		b.rotation.z = PI / 2.0
 	var awn := MeshInstance3D.new()
 	var bm := BoxMesh.new()
@@ -206,18 +339,20 @@ func _bakery() -> void:
 
 
 func _forge() -> void:
-	var g := Node3D.new()
-	g.position = Vector3(14, 0, -11)
-	add_child(g)
-	for p in [Vector2(-3, -2.5), Vector2(3, -2.5), Vector2(-3, 2.5), Vector2(3, 2.5)]:
-		Util.box(g, Vector3(0.3, 3, 0.3), Util.mat(Util.hex("#4b3626")), Vector3(p.x, 1.5, p.y))
-		Util.col_box(self, Vector3(0.3, 3, 0.3), Vector3(14 + p.x, 1.5, -11 + p.y))
-	Util.roof(g, 7, 6.2, 1.4, Util.mat(Util.hex("#55606a")), Vector3(0, 3.7, 0))
-	Util.box(g, Vector3(2.4, 1.8, 1), Util.mat(Util.hex("#5a5048")), Vector3(0, 0.9, -2))
-	Util.col_box(self, Vector3(2.4, 1.8, 1), Vector3(14, 0.9, -13))
-	var fire := Util.box(g, Vector3(1, 0.6, 0.1), Util.mat(Color(1, 0.48, 0.16), Color(1, 0.48, 0.16), 3.0, true), Vector3(0, 0.7, -1.48))
-	fire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	Util.cyl(g, 0.3, 0.4, 2.6, Util.mat(Util.hex("#3e3630")), Vector3(0, 2.9, -2), 8)
+	var bs := _building("building_blacksmith_red", 13.6, -15.4, "+z", S_BUILD * 0.85)
+	if bs.is_empty():
+		var g := Node3D.new()
+		g.position = Vector3(14, 0, -11)
+		add_child(g)
+		for p in [Vector2(-3, -2.5), Vector2(3, -2.5), Vector2(-3, 2.5), Vector2(3, 2.5)]:
+			Util.box(g, Vector3(0.3, 3, 0.3), Util.mat(Util.hex("#4b3626")), Vector3(p.x, 1.5, p.y))
+			Util.col_box(self, Vector3(0.3, 3, 0.3), Vector3(14 + p.x, 1.5, -11 + p.y))
+		Util.roof(g, 7, 6.2, 1.4, Util.mat(Util.hex("#55606a")), Vector3(0, 3.7, 0))
+		Util.box(g, Vector3(2.4, 1.8, 1), Util.mat(Util.hex("#5a5048")), Vector3(0, 0.9, -2))
+		Util.col_box(self, Vector3(2.4, 1.8, 1), Vector3(14, 0.9, -13))
+		var fire := Util.box(g, Vector3(1, 0.6, 0.1), Util.mat(Color(1, 0.48, 0.16), Color(1, 0.48, 0.16), 3.0, true), Vector3(0, 0.7, -1.48))
+		fire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		Util.cyl(g, 0.3, 0.4, 2.6, Util.mat(Util.hex("#3e3630")), Vector3(0, 2.9, -2), 8)
 	var anvil := Node3D.new()
 	anvil.position = Vector3(14.6, 0, -9.8)
 	add_child(anvil)
@@ -230,7 +365,7 @@ func _forge() -> void:
 	forge_light.light_color = Color(1, 0.54, 0.24)
 	forge_light.light_energy = 1.4
 	forge_light.omni_range = 10.0
-	forge_light.position = Vector3(14, 1.2, -12.2)
+	forge_light.position = Vector3(14, 1.4, -11.0) if not bs.is_empty() else Vector3(14, 1.2, -12.2)
 	add_child(forge_light)
 	var rm := StandardMaterial3D.new()
 	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -241,46 +376,67 @@ func _forge() -> void:
 
 
 func _tavern() -> void:
-	_house(14, 12, 9, 7, 3.8, "#c9b38f", "#6a3f2a", "-z")
+	if _building("building_tavern_yellow", 14, 12.4, "-z", S_BUILD * 0.85).is_empty():
+		_house(14, 12, 9, 7, 3.8, "#c9b38f", "#6a3f2a", "-z")
 	Util.box(self, Vector3(3, 0.45, 0.8), Util.mat(Util.hex("#6e4c2e")), Vector3(14, 0.45, 7.3))
 	Util.col_box(self, Vector3(3, 0.9, 0.8), Vector3(14, 0.45, 7.3))
 
 
 func _farm() -> void:
-	_house(-15, 13, 7, 6, 3, "#e9e0c9", "#7a5a2a", "-z")
+	if _building("building_home_A_green", -15, 13.4, "-z", S_BUILD).is_empty():
+		_house(-15, 13, 7, 6, 3, "#e9e0c9", "#7a5a2a", "-z")
+	# trigo: tallo fino + espiga, en dos MultiMesh
 	var stalk := CylinderMesh.new()
-	stalk.top_radius = 0.03
-	stalk.bottom_radius = 0.05
-	stalk.height = 1.0
+	stalk.top_radius = 0.012
+	stalk.bottom_radius = 0.022
+	stalk.height = 0.8
 	stalk.radial_segments = 4
 	stalk.rings = 1
-	stalk.material = Util.mat(Util.hex("#d8b54a"))
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = stalk
-	var xforms := []
+	stalk.material = Util.mat(Util.hex("#c8ad52"), Util.hex("#3a2f10"))
+	var ear := CapsuleMesh.new()
+	ear.radius = 0.035
+	ear.height = 0.2
+	ear.radial_segments = 5
+	ear.rings = 1
+	ear.material = Util.mat(Util.hex("#f2cf62"), Util.hex("#4a3a10"))
+	var xs := []
+	var xe := []
 	var x := -39.0
 	while x < -24.5:
 		var z := 6.6
 		while z < 21.6:
-			var sy := randf_range(0.7, 1.15)
-			xforms.append(Transform3D(Basis().scaled(Vector3(1, sy, 1)), Vector3(x + randf_range(-0.12, 0.12), 0.5 * sy, z + randf_range(-0.12, 0.12))))
-			z += 0.55
-		x += 0.55
-	mm.instance_count = xforms.size()
-	for i in xforms.size():
-		mm.set_instance_transform(i, xforms[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	add_child(mmi)
-	var wood := Util.mat(Util.hex("#6b5134"))
-	var fx := -40.0
-	while fx <= -24.0:
-		Util.box(self, Vector3(0.12, 0.8, 0.12), wood, Vector3(fx, 0.4, 5.8))
-		Util.box(self, Vector3(0.12, 0.8, 0.12), wood, Vector3(fx, 0.4, 22.2))
-		fx += 2.0
-	Util.box(self, Vector3(16, 0.1, 0.08), wood, Vector3(-32, 0.6, 5.8))
-	Util.box(self, Vector3(16, 0.1, 0.08), wood, Vector3(-32, 0.6, 22.2))
+			for k in 2:
+				var sy := randf_range(0.8, 1.2)
+				var lean := Basis(Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized(), randf_range(0.0, 0.18))
+				var base := Vector3(x + randf_range(-0.2, 0.2), 0.0, z + randf_range(-0.2, 0.2))
+				xs.append(Transform3D(lean.scaled(Vector3(1, sy, 1)), base + lean * Vector3(0, 0.4 * sy, 0)))
+				xe.append(Transform3D(lean, base + lean * Vector3(0, 0.8 * sy + 0.1, 0)))
+			z += 0.5
+		x += 0.5
+	for pair in [[stalk, xs], [ear, xe]]:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = pair[0]
+		mm.instance_count = pair[1].size()
+		for i in pair[1].size():
+			mm.set_instance_transform(i, pair[1][i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
+	if ResourceLoader.exists(V + "fence_wood_straight.gltf"):
+		for fz in [5.8, 22.2]:
+			for k in 8:
+				_place("fence_wood_straight", -39.0 + k * 2.0, fz, PI * 0.5, Vector3(1.8, 1.8, 2.0 / 1.15 * 1.02))
+	else:
+		var wood := Util.mat(Util.hex("#6b5134"))
+		var fx := -40.0
+		while fx <= -24.0:
+			Util.box(self, Vector3(0.12, 0.8, 0.12), wood, Vector3(fx, 0.4, 5.8))
+			Util.box(self, Vector3(0.12, 0.8, 0.12), wood, Vector3(fx, 0.4, 22.2))
+			fx += 2.0
+		Util.box(self, Vector3(16, 0.1, 0.08), wood, Vector3(-32, 0.6, 5.8))
+		Util.box(self, Vector3(16, 0.1, 0.08), wood, Vector3(-32, 0.6, 22.2))
 	for p in [Vector2(-30, 9), Vector2(-35, 12), Vector2(-28, 17), Vector2(-37, 19), Vector2(-32, 15), Vector2(-26, 20), Vector2(-38, 8)]:
 		var g := Node3D.new()
 		g.position = Vector3(p.x, 0, p.y)
@@ -403,6 +559,7 @@ func _trees() -> void:
 		var x := cos(a) * r
 		var z := sin(a) * r
 		if Util.in_field(x, z) or Vector2(x - portal_pos.x, z - portal_pos.z).length() < 9.0 or Vector2(x - 52, z - 4).length() < 15.0 \
+				or Vector2(x + 45, z - 14).length() < 7.0 \
 				or Vector2(x - 40, z - 18).length() < 8.0 or Vector2(x - 40, z + 18).length() < 9.0 \
 				or (x > -20.0 and x < 30.0 and z > -28.0 and z < 20.0 and r < 34.0):
 			continue
@@ -444,6 +601,16 @@ func _trees() -> void:
 			cs.shape = cy
 			cs.position = Vector3(p.x, y + 1.5, p.y)
 			col.add_child(cs)
+	# árboles de KayKit (dos variedades); si faltan, conos con primitivas
+	var xa := []
+	var xb := []
+	for i in pts.size():
+		var p: Vector2 = pts[i]
+		var s := randf_range(4.2, 6.5)
+		var xf := Transform3D(Basis(Vector3.UP, randf() * TAU).scaled(Vector3.ONE * s), Vector3(p.x, Util.terrain_h(p.x, p.y) - 0.1, p.y))
+		(xa if i % 2 == 0 else xb).append(xf)
+	if _multi("tree_single_A", xa) and _multi("tree_single_B", xb):
+		return
 	for m in [mt, mc]:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = m

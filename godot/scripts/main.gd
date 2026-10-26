@@ -120,12 +120,15 @@ func _ready() -> void:
 		creator_cam.fov = 60.0
 		add_child(creator_cam)
 		creator_cam.current = true
+		player.visible = false   # que los brazos en primera persona no salgan en la vista del creador
 	_init_tts()
 	ui.open_creator()
 	if smoke:
 		_run_smoke()
 	elif "--soak" in OS.get_cmdline_user_args():
 		_run_soak()
+	elif "--shots" in OS.get_cmdline_user_args():
+		_run_shots()
 
 
 func _setup_input() -> void:
@@ -155,8 +158,9 @@ func _build_environment() -> void:
 	env.ambient_light_energy = 0.8
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_density = 0.006
-	env.fog_sky_affect = 0.3
+	env.fog_density = 0.0028
+	env.fog_sky_affect = 0.15
+	env.ambient_light_sky_contribution = 0.75
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
@@ -417,6 +421,7 @@ func start_game(continuing: bool) -> void:
 		teleport_to(START)
 		player.yaw = 0.0
 	ui.close_creator()
+	player.visible = true
 	if creator_cam:
 		creator_cam.current = false
 	player.camera.current = true
@@ -1320,8 +1325,9 @@ func _process(delta: float) -> void:
 		if creator_cam:
 			creator_ang += dt * 0.25
 			var c := avatar.position
-			creator_cam.global_position = Vector3(c.x + sin(creator_ang) * 3.2 - 1.2, 1.45, c.z + cos(creator_ang) * 3.2)
-			creator_cam.look_at(Vector3(c.x - 0.5, 1.0, c.z), Vector3.UP)
+			# el personaje queda a la derecha, fuera de la ventana de creación
+			creator_cam.global_position = Vector3(c.x + sin(creator_ang) * 3.2 - 1.8, 1.45, c.z + cos(creator_ang) * 3.2)
+			creator_cam.look_at(Vector3(c.x - 1.7, 1.0, c.z), Vector3.UP)
 		avatar.rotation.y = sin(t_total * 0.5) * 0.4
 		avatar.animate(dt, 0.0, t_total)
 		for n in npcs:
@@ -1417,8 +1423,8 @@ func _update_sky() -> void:
 	var sy := sin(a)
 	var dayk := Util.smooth(-0.15, 0.25, sy)
 	var dusk := 1.0 - absf(clampf(sy * 3.0, -1.0, 1.0))
-	var top := Color(0.027, 0.043, 0.11).lerp(Color(0.31, 0.56, 0.84), dayk).lerp(Color(0.23, 0.29, 0.48), dusk * 0.5 * (1.0 - dayk * 0.5))
-	var bot := Color(0.086, 0.125, 0.227).lerp(Color(0.75, 0.88, 0.94), dayk).lerp(Color(0.94, 0.63, 0.38), dusk * 0.75)
+	var top := Color(0.027, 0.043, 0.11).lerp(Color(0.2, 0.45, 0.82), dayk).lerp(Color(0.23, 0.29, 0.48), dusk * 0.5 * (1.0 - dayk * 0.5))
+	var bot := Color(0.086, 0.125, 0.227).lerp(Color(0.6, 0.77, 0.9), dayk).lerp(Color(0.94, 0.63, 0.38), dusk * 0.75)
 	var pp := player_pos()
 	if pp.x > 250.0:
 		top = Color(0.043, 0.06, 0.165)
@@ -1427,12 +1433,12 @@ func _update_sky() -> void:
 	sky_mat.sky_horizon_color = bot
 	sky_mat.ground_horizon_color = bot
 	sky_mat.ground_bottom_color = bot.darkened(0.6)
-	env.fog_light_color = bot.lerp(top, 0.25)
-	env.ambient_light_energy = 0.25 + dayk * 0.6
+	env.fog_light_color = bot.lerp(top, 0.35)
+	env.ambient_light_energy = 0.25 + dayk * 0.45
 	if sy > -0.05:
 		sun.look_at_from_position(pp + Vector3(cos(a) * 60.0, maxf(sy, 0.05) * 80.0, 25.0), pp, Vector3.UP)
 		sun.light_color = Color(1, 0.95, 0.84).lerp(Color(1, 0.63, 0.38), dusk * 0.7)
-		sun.light_energy = 0.15 + dayk * 0.95
+		sun.light_energy = 0.15 + dayk * 1.15
 	else:
 		sun.look_at_from_position(pp + Vector3(-cos(a) * 60.0, -sy * 70.0, -20.0), pp, Vector3.UP)
 		sun.light_color = Color(0.56, 0.65, 0.85)
@@ -1488,6 +1494,48 @@ func _check(cond: bool, what: String, fails: Array) -> void:
 		fails.append(what)
 
 
+## Capturas para revisar el aspecto: godot --path . -- --shots  (guarda PNG en SHOT_DIR o user://shots)
+func _look_from(p: Vector3, target: Vector3, eye_drop: float = 0.0) -> void:
+	teleport_to(p)
+	var d := target - p
+	player.yaw = atan2(-d.x, -d.z)
+	player.pitch = clampf(atan2(target.y - (p.y + 1.6 - eye_drop), Vector2(d.x, d.z).length()), -1.2, 1.2)
+
+
+func _run_shots() -> void:
+	var dir := OS.get_environment("SHOT_DIR")
+	if dir == "":
+		dir = "user://shots"
+	DirAccess.make_dir_recursive_absolute(dir)
+	await _wait(1.0)
+	get_viewport().get_texture().get_image().save_png(dir + "/creador.png")
+	start_game(false)
+	Game.minute = 15.0 * 60.0
+	await _wait(0.5)
+	var views := [
+		["pueblo", Vector3(-2, 0, 24), Vector3(0, 2.0, -6)],
+		["plaza", Vector3(0, 0, 9), Vector3(0, 1.5, -10)],
+		["panaderia", Vector3(-9, 0, -2), Vector3(-14, 1.5, -11)],
+		["forja", Vector3(9, 0, -3), Vector3(14, 1.2, -11)],
+		["taberna", Vector3(6, 0, 3), Vector3(14, 2.0, 12)],
+		["granja", Vector3(-8, 0, 6), Vector3(-25, 1.0, 14)],
+		["bosque", Vector3(20, 0, 20), Vector3(40, 3.0, 40)],
+	]
+	for v in views:
+		_look_from(v[1], v[2])
+		await _wait(1.0)
+		get_viewport().get_texture().get_image().save_png(dir + "/" + str(v[0]) + ".png")
+	for id in ["bruno", "lia", "dorran", "sira"]:
+		var n = Game.npcs[id]
+		var np: Vector3 = n.global_position
+		var fwd := Vector3(sin(n.body.rotation.y), 0, cos(n.body.rotation.y))
+		_look_from(np + fwd * 2.6 + Vector3(0.6, 0, 0), np + Vector3(0, 1.1, 0))
+		await _wait(0.8)
+		get_viewport().get_texture().get_image().save_png(dir + "/npc_" + id + ".png")
+	print("SHOTS: OK ", ProjectSettings.globalize_path(dir))
+	get_tree().quit()
+
+
 func _run_smoke() -> void:
 	var fails := []
 	await _wait(0.5)
@@ -1500,6 +1548,11 @@ func _run_smoke() -> void:
 	start_game(false)
 	await _wait(0.6)
 	_check(Game.started and Game.max_hp == 120.0, "partida iniciada como Herrero (vida 120)", fails)
+	var animated := 0
+	for n in npcs:
+		if n.body.model != null and n.body.anim != null and n.body.anim.is_playing() and n.body.cur_anim != "":
+			animated += 1
+	_check(animated == npcs.size(), "habitantes con modelo animado, sin pose T (%d/%d)" % [animated, npcs.size()], fails)
 	var p0 := player_pos()
 	Input.action_press("move_forward")
 	await _wait(1.0)

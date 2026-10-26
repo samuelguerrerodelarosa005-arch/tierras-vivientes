@@ -4,8 +4,10 @@ Port del prototipo WebXR a Godot 4.8 con OpenXR. Mismo juego: pueblo de Valdeluz
 agenda, memoria, afinidad y rumores; trabajos libres (principal + secundario); forja, comida, hechizos,
 limos, tienda, portal nocturno, Ruinas Lunares, títulos y fragmento de recuerdo al morir.
 
-Todo el 3D está hecho con primitivas desde código. El siguiente paso es cambiar esas primitivas por
-modelos `.glb` (ver «Mejorar los gráficos»).
+Los habitantes, edificios, árboles y objetos usan modelos **KayKit** (Kay Lousberg, licencia **CC0**:
+uso libre, también comercial). Los habitantes vienen **con sus animaciones** (quieto, caminar, correr, saludar,
+hablar, martillar), así que ya no salen en pose T. El estilo es caricaturesco (cabeza grande), no realista.
+Lo que no tiene modelo (fuente, Santuario, portal, ruinas, limos) sigue hecho con primitivas.
 
 ## 1. Abrirlo en tu PC
 
@@ -79,22 +81,29 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
   `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
 - **Voces de los habitantes**: usan el texto a voz del sistema (Windows o Android). La calidad depende del dispositivo.
 
-## Mejorar los gráficos
+## Gráficos y modelos
 
-Cada parte del mundo está en una función de `scripts/world.gd` (`_bakery`, `_forge`, `_tavern`…) y los personajes en
-`scripts/humanoid.gd`. Para meter arte real:
+- `models/characters/`: Knight, Barbarian, Mage y Rogue (KayKit Adventurers, 76 animaciones cada uno).
+  Cada habitante elige modelo en `scripts/data.gd` (`"model"`, y `"hide"`/`"show"` para quitar cascos o poner el bastón).
+  El jugador elige el suyo en el creador (**Aspecto**); «Clásico» es el muñeco de primitivas con colores.
+- `models/village/`: casas, panadería, forja, taberna, pozo, molino, árboles, rocas, vallas, barriles… (KayKit Medieval Hexagon).
+  Vienen en miniatura: `world.gd` los escala (`S_BUILD`, `S_PROP`) y les pone colisión de su tamaño.
+- Si borras un modelo, el juego vuelve a dibujar esa pieza con primitivas en el mismo sitio.
 
-1. Descarga modelos con licencia libre en `.glb` (por ejemplo los packs CC0 de **Quaternius** o **Kenney**) y
-   arrástralos a una carpeta `models/` del proyecto.
-2. En la función del edificio, cambia las primitivas por `load("res://models/xxx.glb").instantiate()` en la misma posición.
-   Las colisiones (`Util.col_box`) pueden quedarse igual.
-3. Para personajes animados, sustituye `humanoid.gd` por un modelo con `AnimationPlayer` (caminar, hablar, gestos)
-   y llama a sus animaciones desde `animate()`.
+**Por qué no se veía bien el modelo «villager.glb»**: era un maniquí base (Universal Base Characters) sin ropa, sin
+textura y **sin animaciones**. Godot no puede animar lo que el archivo no trae, por eso salía en pose T. Si quieres otro
+personaje, necesita el esqueleto **y** las animaciones (en el mismo `.glb` o en uno compatible).
+
+**Realista de verdad** en el Quest 3S (sin PC) es difícil: cada personaje realista pesa mucho más y el visor va justo.
+Si quieres ese estilo, la vía práctica es Mixamo (personaje + animaciones, cuenta gratuita de Adobe) exportado a `.glb`:
+se cambia la ruta en `MODELS` de `scripts/humanoid.gd` y los nombres de animación en `GEST_ANIM`.
+
+Capturas para revisar el aspecto sin visor: `godot --path godot -- --shots` (guarda PNG en `user://shots`).
 
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 33 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, guardado
+godot --headless --path godot -- --smoke   # 34 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 ```
 
@@ -109,4 +118,7 @@ godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 | `scripts/dialogue.gd` | Conversación (IA de Claude o guion de respaldo) |
 | `scripts/ui.gd` + `scripts/panel3d.gd` | Interfaz de PC y paneles 3D clicables en VR |
 | `scripts/world.gd` | Construcción del pueblo, terreno, portal y ruinas |
-| `scripts/slime.gd`, `scripts/humanoid.gd`, `scripts/sfx.gd`, `scripts/util.gd` | Limos, personajes, sonidos, utilidades |
+| `scripts/humanoid.gd` | Personajes: modelo KayKit animado (o primitivas) |
+| `scripts/slime.gd`, `scripts/sfx.gd`, `scripts/util.gd` | Limos, sonidos, utilidades |
+| `models/` | Modelos KayKit (CC0) con sus licencias |
+| `tools/preview_models.gd` | Pone modelos junto a una persona de 1,75 m para comprobar la escala |

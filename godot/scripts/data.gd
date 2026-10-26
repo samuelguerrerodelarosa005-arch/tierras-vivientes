@@ -25,7 +25,8 @@ const NPC_DEFS := [
 		"id": "bruno", "name": "Bruno", "role": "Panadero",
 		"persona": "gruñón, orgulloso de su pan hecho a mano, generoso en secreto, desconfía un poco de los Viajeros",
 		"style": "frases cortas, se queja del precio de la harina, exclama «¡Por mis hornos!»",
-		"look": {"skin": "#c98e66", "hair": "#3a2a1e", "hair_style": "rapado", "outfit": "#e9e2d0", "pants": "#5b4636", "height": 1.74, "build": 1.28, "apron": true, "beard": true},
+		"look": {"skin": "#c98e66", "hair": "#3a2a1e", "hair_style": "rapado", "outfit": "#e9e2d0", "pants": "#5b4636", "height": 1.74, "build": 1.28, "apron": true, "beard": true,
+			"model": "barbaro", "hide": ["Barbarian_Hat", "Barbarian_Cape"]},
 		"voice": {"pitch": 0.7, "rate": 0.95, "idx": 0},
 		"sched": [[6, "bakery"], [19, "tavern_b"], [22, "bakery_home"]],
 		"lines": {
@@ -41,7 +42,8 @@ const NPC_DEFS := [
 		"id": "lia", "name": "Lía", "role": "Granjera",
 		"persona": "optimista, curiosa, chismosa, cuida sus cultivos como si fueran hijos",
 		"style": "habla rápido, usa diminutivos, se entusiasma",
-		"look": {"skin": "#e3b48c", "hair": "#8a4a1f", "hair_style": "coleta", "outfit": "#6f8f3a", "pants": "#4a3a28", "height": 1.62, "build": 0.92},
+		"look": {"skin": "#e3b48c", "hair": "#8a4a1f", "hair_style": "coleta", "outfit": "#6f8f3a", "pants": "#4a3a28", "height": 1.62, "build": 0.92,
+			"model": "picara", "hide": ["Rogue_Cape"]},
 		"voice": {"pitch": 1.35, "rate": 1.12, "idx": 1},
 		"sched": [[6, "field"], [11, "fountain_l"], [13, "field2"], [18, "fountain_l2"], [21, "lia_home"]],
 		"lines": {
@@ -57,7 +59,8 @@ const NPC_DEFS := [
 		"id": "dorran", "name": "Maese Dorran", "role": "Herrero",
 		"persona": "perfeccionista, seco, respeta solo el trabajo bien hecho, guarda un secreto sobre su viejo maestro y las Ruinas Lunares",
 		"style": "formal, pocas palabras, metáforas de metal y fuego",
-		"look": {"skin": "#a8714c", "hair": "#d8d4cc", "hair_style": "corto", "outfit": "#4a4038", "pants": "#2e2722", "height": 1.82, "build": 1.22, "apron": true, "beard": true},
+		"look": {"skin": "#a8714c", "hair": "#d8d4cc", "hair_style": "corto", "outfit": "#4a4038", "pants": "#2e2722", "height": 1.82, "build": 1.22, "apron": true, "beard": true,
+			"model": "caballero", "hide": ["Knight_Helmet", "Knight_Cape"]},
 		"voice": {"pitch": 0.55, "rate": 0.86, "idx": 2},
 		"sched": [[7, "forge"], [18, "tavern_d"], [20, "plaza_d"], [21, "dorran_home"]],
 		"lines": {
@@ -73,7 +76,8 @@ const NPC_DEFS := [
 		"id": "sira", "name": "Sira", "role": "Guardiana del portal",
 		"persona": "serena, misteriosa, justa, estudia la luna y vigila el portal y la verdad de los rumores",
 		"style": "habla con calma y metáforas lunares",
-		"look": {"skin": "#7a5440", "hair": "#141018", "hair_style": "largo", "outfit": "#3b3f6e", "pants": "#26243a", "height": 1.7, "build": 0.95, "cape": true, "cape_color": "#20224a"},
+		"look": {"skin": "#7a5440", "hair": "#141018", "hair_style": "largo", "outfit": "#3b3f6e", "pants": "#26243a", "height": 1.7, "build": 0.95, "cape": true, "cape_color": "#20224a",
+			"model": "maga", "show": ["2H_Staff"]},
 		"voice": {"pitch": 1.08, "rate": 0.9, "idx": 3},
 		"sched": [[6, "plaza_s"], [8, "sanct"], [18, "portal_s"]],
 		"lines": {

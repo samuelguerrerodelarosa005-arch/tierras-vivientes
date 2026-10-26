@@ -1,5 +1,6 @@
 extends Node3D
-## Personaje humanoide hecho con primitivas, con animación de caminar, gestos y boca al hablar.
+## Personaje humanoide. Si el aspecto trae "model", usa un modelo animado (.glb de KayKit, CC0) con
+## sus animaciones (quieto, caminar, correr, saludar…); si no, lo construye con primitivas.
 ## Mira hacia +Z. Se usa para los habitantes y para la vista previa del jugador.
 
 const Util = preload("res://scripts/util.gd")
@@ -19,11 +20,39 @@ var talk := false
 var look_yaw := 0.0
 var height := 1.75
 
+# ---- modelo animado ----
+const MODELS := {
+	"caballero": "res://models/characters/Knight.glb",
+	"barbaro": "res://models/characters/Barbarian.glb",
+	"maga": "res://models/characters/Mage.glb",
+	"picara": "res://models/characters/Rogue.glb",
+}
+const LOOPED := ["Unarmed_Idle", "Idle", "Walking_A", "Walking_B", "Running_A", "Interact", "1H_Melee_Attack_Chop", "Sit_Floor_Idle"]
+const GEST_ANIM := {
+	"saludar": "Cheer", "hablar": "Interact", "reir": "Cheer", "enojado": "Hit_A",
+	"martillar": "1H_Melee_Attack_Chop", "pensar": "Unarmed_Idle",
+}
+const WALK_SPEED := 2.2   # m/s a la que la animación de caminar coincide con los pies
+var model: Node3D
+var anim: AnimationPlayer
+var skel: Skeleton3D
+var head_bone := -1
+var cur_anim := ""
+var look_cur := 0.0
+var nod := 0.0
+
 
 func build(o: Dictionary) -> void:
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
+	model = null
+	anim = null
+	skel = null
+	torso = null
+	cur_anim = ""
+	if MODELS.has(str(o.get("model", ""))) and _build_model(o):
+		return
 	var b: float = float(o.get("build", 1.0))
 	height = float(o.get("height", 1.75))
 	var m_skin := Util.mat(Color.html(str(o.skin)))
@@ -92,7 +121,88 @@ func build(o: Dictionary) -> void:
 	scale = Vector3.ONE * (height / 1.85)
 
 
+func _build_model(o: Dictionary) -> bool:
+	var path: String = MODELS[str(o.model)]
+	if not ResourceLoader.exists(path):
+		return false
+	var ps := load(path) as PackedScene
+	if ps == null:
+		return false
+	model = ps.instantiate() as Node3D
+	add_child(model)
+	anim = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	skel = model.find_child("Skeleton3D", true, false) as Skeleton3D
+	# armas y objetos en las manos ocultos salvo los que pida el aspecto ("show")
+	var keep: Array = o.get("show", [])
+	for slot in ["handslot_l", "handslot_r"]:
+		var sn := model.find_child(slot, true, false)
+		if sn:
+			for c in sn.get_children():
+				(c as Node3D).visible = c.name in keep
+	for hn in o.get("hide", []):
+		var n := model.find_child(str(hn), true, false)
+		if n:
+			(n as Node3D).visible = false
+	# altura: la del cuerpo en reposo (sin armas)
+	var top := 0.0
+	for m in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.get_parent() is BoneAttachment3D or not mi.visible:
+			continue
+		top = maxf(top, mi.get_aabb().end.y)
+	height = float(o.get("height", 1.75))
+	scale = Vector3.ONE * (height / (top if top > 0.5 else 2.4))
+	if anim:
+		for a in LOOPED:
+			if anim.has_animation(a):
+				anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
+		anim.mixer_applied.connect(_after_anim)
+		_play("Unarmed_Idle", 0.0)
+		anim.seek(randf() * 1.0, true)
+	if skel:
+		head_bone = skel.find_bone("head")
+	return true
+
+
+func _play(a: String, blend: float = 0.2) -> void:
+	if anim == null or a == cur_anim or not anim.has_animation(a):
+		return
+	anim.play(a, blend)
+	cur_anim = a
+
+
+## Después de aplicar la animación: gira la cabeza hacia quien mira y asiente al hablar.
+func _after_anim() -> void:
+	if skel == null or head_bone < 0:
+		return
+	var q := skel.get_bone_pose_rotation(head_bone)
+	q = q * Quaternion(Vector3.UP, look_cur) * Quaternion(Vector3.RIGHT, nod)
+	skel.set_bone_pose_rotation(head_bone, q)
+
+
+func _animate_model(dt: float, speed: float, t: float) -> void:
+	var want := "Unarmed_Idle"
+	var rate := 1.0
+	if speed > 3.2:
+		want = "Running_A"
+		rate = clampf(speed / 5.0, 0.7, 1.4)
+	elif speed > 0.1:
+		want = "Walking_A"
+		rate = clampf(speed / WALK_SPEED, 0.6, 1.5)
+	if gest_t > 0.0:
+		gest_t -= dt
+		if speed <= 0.1 and GEST_ANIM.has(gest):
+			want = GEST_ANIM[gest]
+	_play(want)
+	anim.speed_scale = rate
+	look_cur = lerpf(look_cur, clampf(look_yaw, -1.0, 1.0), 0.12)
+	nod = lerpf(nod, sin(t * 7.0 + phase) * 0.09 if talk else 0.0, 0.2)
+
+
 func animate(dt: float, speed: float, t: float) -> void:
+	if model != null and anim != null:
+		_animate_model(dt, speed, t)
+		return
 	if torso == null:
 		return
 	phase += dt * speed * 3.4

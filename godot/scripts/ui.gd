@@ -593,7 +593,7 @@ func _choice(options: Array, key: String) -> HBoxContainer:
 
 
 func _job_grid(slot: String) -> GridContainer:
-	var g := grid(4)
+	var g := grid(3)
 	for k in Game.JOB_ORDER:
 		var cur: String = Game.cls if slot == "cls" else Game.sub
 		g.add_child(B(Game.JOBS[k].name, func():
@@ -603,6 +603,7 @@ func _job_grid(slot: String) -> GridContainer:
 			Game.set(slot, k)
 			mark("creator")
 		, cur == k, 46))
+		g.get_child(-1).add_theme_font_size_override("font_size", 16)
 	return g
 
 
@@ -632,6 +633,17 @@ func _build_creator() -> void:
 		le.max_length = 16
 		le.text_changed.connect(func(t): Game.player_name = t.strip_edges() if t.strip_edges() != "" else "Viajero")
 		a.add_child(le)
+	a.add_child(section("Aspecto"))
+	var mg := grid(3)
+	for o in [["caballero", "Caballero"], ["barbaro", "Bárbaro"], ["maga", "Maga"], ["picara", "Pícara"], ["", "Clásico"]]:
+		mg.add_child(B(o[1], func():
+			Game.look["model"] = o[0]
+			main.rebuild_avatar()
+			mark("creator")
+		, str(Game.look.get("model", "")) == o[0], 44))
+	a.add_child(mg)
+	if str(Game.look.get("model", "")) != "":
+		a.add_child(L("Piel, peinado, ropa y capa solo cambian el aspecto Clásico.", 14, C_MUTED))
 	a.add_child(section("Altura"))
 	a.add_child(_stepper("%.2f m" % float(Game.look.height), func(): _adj("height", -0.04, 1.55, 1.95), func(): _adj("height", 0.04, 1.55, 1.95)))
 	a.add_child(section("Complexión"))

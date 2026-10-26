@@ -74,7 +74,7 @@ const QT := {
 
 # ---------- jugador ----------
 var player_name := "Viajero"
-var look := {"skin": "#d9a07a", "hair": "#3a2618", "hair_style": "corto", "outfit": "#3f6e8c", "cape": true, "height": 1.75, "build": 1.0}
+var look := {"skin": "#d9a07a", "hair": "#3a2618", "hair_style": "corto", "outfit": "#3f6e8c", "cape": true, "height": 1.75, "build": 1.0, "model": "caballero"}
 var cls := "elementalista"
 var sub := "herrero"
 var hp := 90.0
