@@ -1532,6 +1532,13 @@ func _run_shots() -> void:
 		_look_from(np + fwd * 2.6 + Vector3(0.6, 0, 0), np + Vector3(0, 1.1, 0))
 		await _wait(0.8)
 		get_viewport().get_texture().get_image().save_png(dir + "/npc_" + id + ".png")
+	var dn = Game.npcs["dorran"]
+	for k in 3:
+		dn.body.gest = "martillar"
+		dn.body.gest_t = 6.0
+		_look_from(dn.global_position + Vector3(2.4, 0, 1.6), world.anvil_top + Vector3(-0.4, 0, 0.4))
+		await _wait(0.45 + k * 0.25)
+		get_viewport().get_texture().get_image().save_png(dir + "/martillar_%d.png" % k)
 	print("SHOTS: OK ", ProjectSettings.globalize_path(dir))
 	get_tree().quit()
 
@@ -1548,6 +1555,8 @@ func _run_smoke() -> void:
 	start_game(false)
 	await _wait(0.6)
 	_check(Game.started and Game.max_hp == 120.0, "partida iniciada como Herrero (vida 120)", fails)
+	var e400: String = dialogue.explain_error(400, "invalid_request_error", "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.")
+	_check("saldo" in e400 and "console.anthropic.com" in e400, "error 400 de la IA explicado: sin saldo", fails)
 	var animated := 0
 	for n in npcs:
 		if n.body.model != null and n.body.anim != null and n.body.anim.is_playing() and n.body.cur_anim != "":

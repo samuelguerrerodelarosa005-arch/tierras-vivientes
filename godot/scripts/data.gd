@@ -12,7 +12,7 @@ const PLACES := {
 	"fountain_l": {"path": [Vector2(2.8, 1.6)], "hide": false},
 	"fountain_l2": {"path": [Vector2(-2.7, 2.2)], "hide": false},
 	"lia_home": {"path": [Vector2(-15.0, 9.3)], "hide": true},
-	"forge": {"path": [Vector2(11.2, -8.2), Vector2(12.5, -10.3)], "hide": false},
+	"forge": {"path": [Vector2(11.2, -8.2), Vector2(12.4, -11.0), Vector2(13.3, -11.55)], "hide": false},
 	"dorran_home": {"path": [Vector2(20.8, -4.0)], "hide": true},
 	"plaza_d": {"path": [Vector2(3.3, -2.6)], "hide": false},
 	"sanct": {"path": [Vector2(2.8, -17.3)], "hide": false},
@@ -60,7 +60,7 @@ const NPC_DEFS := [
 		"persona": "perfeccionista, seco, respeta solo el trabajo bien hecho, guarda un secreto sobre su viejo maestro y las Ruinas Lunares",
 		"style": "formal, pocas palabras, metáforas de metal y fuego",
 		"look": {"skin": "#a8714c", "hair": "#d8d4cc", "hair_style": "corto", "outfit": "#4a4038", "pants": "#2e2722", "height": 1.82, "build": 1.22, "apron": true, "beard": true,
-			"model": "caballero", "hide": ["Knight_Helmet", "Knight_Cape"]},
+			"model": "caballero", "hide": ["Knight_Helmet", "Knight_Cape"], "tool": "martillo"},
 		"voice": {"pitch": 0.55, "rate": 0.86, "idx": 2},
 		"sched": [[7, "forge"], [18, "tavern_d"], [20, "plaza_d"], [21, "dorran_home"]],
 		"lines": {

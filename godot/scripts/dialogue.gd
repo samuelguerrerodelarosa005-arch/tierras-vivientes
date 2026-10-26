@@ -4,7 +4,10 @@ extends Node
 ## La IA solo escribe el texto: las misiones y recompensas las decide el juego.
 
 const Data = preload("res://scripts/data.gd")
-const MODEL := "claude-haiku-5-5"
+# Se prueba el primero; si la API dice que no existe, se pasa al siguiente.
+const MODELS := ["claude-haiku-5-5", "claude-haiku-4-5"]
+var model_idx := 0
+var last_error := ""   # último error de la IA, explicado (se ve en Ajustes)
 
 var main: Node
 var npc: Node = null
@@ -272,33 +275,11 @@ func _ask_ai(n: Node, player_text: String, _intent: String, offers: Array) -> Di
 	var filler: String = Data.FILLERS.get(n.id, "")
 	if filler != "":
 		main.speak(filler, n.def.voice, n, 0.8)
-	var http := HTTPRequest.new()
-	http.timeout = 15.0
-	add_child(http)
-	var body := JSON.stringify({"model": MODEL, "max_tokens": 300, "messages": [{"role": "user", "content": _prompt(n, player_text, offers)}]})
-	var headers := PackedStringArray(["content-type: application/json", "x-api-key: " + str(Game.settings.api_key).strip_edges(), "anthropic-version: 2023-06-01"])
-	var err := http.request("https://api.anthropic.com/v1/messages", headers, HTTPClient.METHOD_POST, body)
-	if err != OK:
-		http.queue_free()
-		_warn("No se pudo conectar con la IA; este habitante usa su guion.")
+	var res := await call_api(_prompt(n, player_text, offers), 300)
+	if not res.ok:
+		_warn(str(res.error) + " Mientras tanto, usa su guion.")
 		return {}
-	var r: Array = await http.request_completed
-	http.queue_free()
-	var result: int = r[0]
-	var code: int = r[1]
-	var raw: PackedByteArray = r[3]
-	if result != HTTPRequest.RESULT_SUCCESS:
-		_warn("La IA tardó o falló; este habitante usa su guion.")
-		return {}
-	if code != 200:
-		_warn("La clave de API fue rechazada (%d). Revisa Ajustes." % code if code in [401, 403] else "La IA respondió con error %d; uso el guion." % code)
-		return {}
-	var j = JSON.parse_string(raw.get_string_from_utf8())
-	if not (j is Dictionary):
-		return {}
-	var txt := ""
-	for c in j.get("content", []):
-		txt += str(c.get("text", ""))
+	var txt: String = res.text
 	var a := txt.find("{")
 	var b := txt.rfind("}")
 	if a < 0 or b <= a:
@@ -314,7 +295,78 @@ func _ask_ai(n: Node, player_text: String, _intent: String, offers: Array) -> Di
 
 
 func _warn(msg: String) -> void:
-	if ai_warned:
+	if ai_warned and msg == last_error:
 		return
 	ai_warned = true
+	last_error = msg
 	Game.say(msg, "bad")
+
+
+## Llama a la API de Claude. Devuelve {"ok": bool, "text": String, "error": String (explicado), "model": String}.
+func call_api(prompt: String, max_tokens: int) -> Dictionary:
+	var key := str(Game.settings.api_key).strip_edges()
+	if key == "":
+		return {"ok": false, "error": "No hay clave de API."}
+	if not key.begins_with("sk-ant-"):
+		return {"ok": false, "error": "Eso no parece una clave de API de Anthropic (empiezan por «sk-ant-»). Cópiala de console.anthropic.com → API Keys."}
+	while model_idx < MODELS.size():
+		var http := HTTPRequest.new()
+		http.timeout = 20.0
+		add_child(http)
+		var body := JSON.stringify({"model": MODELS[model_idx], "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]})
+		var headers := PackedStringArray(["content-type: application/json", "x-api-key: " + key, "anthropic-version: 2023-06-01"])
+		var err := http.request("https://api.anthropic.com/v1/messages", headers, HTTPClient.METHOD_POST, body)
+		if err != OK:
+			http.queue_free()
+			return {"ok": false, "error": "No se pudo abrir la conexión con la IA (¿sin internet?)."}
+		var r: Array = await http.request_completed
+		http.queue_free()
+		if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
+			return {"ok": false, "error": "No hubo respuesta de la IA (sin internet o tardó demasiado)."}
+		var code: int = r[1]
+		var j = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+		if code == 200 and j is Dictionary:
+			var txt := ""
+			for c in j.get("content", []):
+				txt += str(c.get("text", ""))
+			last_error = ""
+			return {"ok": true, "text": txt, "model": MODELS[model_idx]}
+		var etype := ""
+		var emsg := ""
+		if j is Dictionary and j.get("error") is Dictionary:
+			etype = str(j.error.get("type", ""))
+			emsg = str(j.error.get("message", ""))
+		print("IA: error %d %s: %s (modelo %s)" % [code, etype, emsg, MODELS[model_idx]])
+		if code == 404 or (etype == "not_found_error") or (code == 400 and "model" in emsg.to_lower() and not "credit" in emsg.to_lower()):
+			model_idx += 1   # ese modelo no existe para esta cuenta: probar el siguiente
+			continue
+		return {"ok": false, "error": explain_error(code, etype, emsg)}
+	model_idx = 0
+	return {"ok": false, "error": "Ningún modelo de la lista está disponible para tu cuenta (%s)." % ", ".join(MODELS)}
+
+
+static func explain_error(code: int, etype: String, msg: String) -> String:
+	var m := msg.to_lower()
+	if "credit balance" in m or "billing" in m:
+		return "Tu cuenta de la API no tiene saldo (error %d). Ojo: la suscripción de Claude (Pro/Max) no incluye la API; se paga aparte. Añade crédito en console.anthropic.com → Billing." % code
+	match code:
+		401:
+			return "Clave no válida (401). Copia otra vez la clave de console.anthropic.com → API Keys."
+		403:
+			return "La clave no tiene permiso para este modelo (403)."
+		413:
+			return "La petición era demasiado grande (413)."
+		429:
+			return "Demasiadas peticiones o límite de gasto alcanzado (429). Espera un poco."
+		500, 529:
+			return "Los servidores de la IA están saturados (%d). Prueba en un rato." % code
+	return "La IA respondió con error %d%s." % [code, (": " + msg) if msg != "" else ""]
+
+
+## Prueba la clave con una petición mínima. Devuelve el texto a mostrar.
+func test_key() -> String:
+	var res := await call_api("Responde solo con la palabra: listo", 10)
+	if res.ok:
+		ai_warned = false
+		return "Funciona: la IA responde (modelo %s)." % res.model
+	return str(res.error)

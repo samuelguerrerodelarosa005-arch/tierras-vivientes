@@ -47,6 +47,7 @@ func build(o: Dictionary) -> void:
 		remove_child(c)
 		c.queue_free()
 	model = null
+	tool_node = null
 	anim = null
 	skel = null
 	torso = null
@@ -161,7 +162,42 @@ func _build_model(o: Dictionary) -> bool:
 		anim.seek(randf() * 1.0, true)
 	if skel:
 		head_bone = skel.find_bone("head")
+	if str(o.get("tool", "")) == "martillo":
+		_make_hammer()
 	return true
+
+
+var tool_node: Node3D
+
+## Martillo en la mano derecha, orientado como el arma de una mano del modelo; solo se ve al martillar.
+func _make_hammer() -> void:
+	var slot := model.find_child("handslot_r", true, false) as Node3D
+	if slot == null:
+		return
+	var axis := Vector3.UP
+	var length := 0.9
+	for c in slot.get_children():
+		if c is MeshInstance3D and str(c.name).begins_with("1H"):
+			var a: AABB = (c as MeshInstance3D).transform * (c as MeshInstance3D).get_aabb()
+			var sz := a.size
+			if sz.x >= sz.y and sz.x >= sz.z:
+				axis = Vector3.RIGHT * signf(a.get_center().x)
+			elif sz.z >= sz.y:
+				axis = Vector3.BACK * signf(a.get_center().z)
+			else:
+				axis = Vector3.UP * signf(a.get_center().y)
+			length = maxf(sz.x, maxf(sz.y, sz.z)) * 0.7
+			break
+	tool_node = Node3D.new()
+	slot.add_child(tool_node)
+	var up := Vector3.FORWARD if absf(axis.dot(Vector3.UP)) > 0.9 else Vector3.UP
+	tool_node.basis = Basis.looking_at(axis, up)   # -Z del nodo apunta por el mango, como el arma original
+	var wood := Util.mat(Color.html("#5b3f28"))
+	var iron := Util.mat(Color.html("#5a5a5e"))
+	var handle := Util.cyl(tool_node, 0.05, 0.06, length, wood, Vector3(0, 0, -length * 0.5), 8)
+	handle.rotation.x = PI * 0.5
+	Util.box(tool_node, Vector3(0.42, 0.22, 0.22), iron, Vector3(0, 0, -length))
+	tool_node.visible = false
 
 
 func _play(a: String, blend: float = 0.2) -> void:
@@ -195,6 +231,8 @@ func _animate_model(dt: float, speed: float, t: float) -> void:
 			want = GEST_ANIM[gest]
 	_play(want)
 	anim.speed_scale = rate
+	if tool_node:
+		tool_node.visible = cur_anim == GEST_ANIM.martillar
 	look_cur = lerpf(look_cur, clampf(look_yaw, -1.0, 1.0), 0.12)
 	nod = lerpf(nod, sin(t * 7.0 + phase) * 0.09 if talk else 0.0, 0.2)
 

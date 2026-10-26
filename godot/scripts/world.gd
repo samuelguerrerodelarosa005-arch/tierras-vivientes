@@ -339,8 +339,17 @@ func _bakery() -> void:
 
 
 func _forge() -> void:
-	var bs := _building("building_blacksmith_red", 13.6, -15.4, "+z", S_BUILD * 0.85)
-	if bs.is_empty():
+	# La forja de KayKit ya trae su yunque: el juego usa ese (antes había otro suelto y
+	# Dorran martillaba al aire). La colisión cubre solo el taller, no el patio del yunque.
+	var sc := S_BUILD * 0.85
+	var bs := _place("building_blacksmith_red", 13.6, -15.4, 0.0, sc, 0.0)
+	if not bs.is_empty():
+		var a: AABB = bs.aabb
+		var front := -15.4 + 2.05 * sc / 5.95   # detrás del yunque
+		Util.col_box(self, Vector3(a.size.x * 0.92, a.size.y, front - a.position.z), Vector3(a.get_center().x, a.size.y * 0.5, (a.position.z + front) * 0.5))
+		anvil_top = Vector3(13.6, 0.0, -15.4) + Vector3(0.1, 1.18, 2.7) * (sc / 5.95)
+		Util.col_box(self, Vector3(1.5, anvil_top.y, 0.8), Vector3(anvil_top.x, anvil_top.y * 0.5, anvil_top.z))
+	else:
 		var g := Node3D.new()
 		g.position = Vector3(14, 0, -11)
 		add_child(g)
@@ -353,14 +362,14 @@ func _forge() -> void:
 		var fire := Util.box(g, Vector3(1, 0.6, 0.1), Util.mat(Color(1, 0.48, 0.16), Color(1, 0.48, 0.16), 3.0, true), Vector3(0, 0.7, -1.48))
 		fire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		Util.cyl(g, 0.3, 0.4, 2.6, Util.mat(Util.hex("#3e3630")), Vector3(0, 2.9, -2), 8)
-	var anvil := Node3D.new()
-	anvil.position = Vector3(14.6, 0, -9.8)
-	add_child(anvil)
-	Util.box(anvil, Vector3(0.5, 0.55, 0.4), Util.mat(Util.hex("#3b3936")), Vector3(0, 0.28, 0))
-	Util.box(anvil, Vector3(0.9, 0.22, 0.36), Util.mat(Util.hex("#55534f")), Vector3(0, 0.66, 0))
-	var horn := Util.cyl(anvil, 0.0, 0.16, 0.4, Util.mat(Util.hex("#55534f")), Vector3(0.62, 0.66, 0), 8)
-	horn.rotation.z = -PI / 2.0
-	Util.col_box(self, Vector3(0.9, 0.8, 0.5), Vector3(14.6, 0.4, -9.8))
+		var anvil := Node3D.new()
+		anvil.position = Vector3(14.6, 0, -9.8)
+		add_child(anvil)
+		Util.box(anvil, Vector3(0.5, 0.55, 0.4), Util.mat(Util.hex("#3b3936")), Vector3(0, 0.28, 0))
+		Util.box(anvil, Vector3(0.9, 0.22, 0.36), Util.mat(Util.hex("#55534f")), Vector3(0, 0.66, 0))
+		var horn := Util.cyl(anvil, 0.0, 0.16, 0.4, Util.mat(Util.hex("#55534f")), Vector3(0.62, 0.66, 0), 8)
+		horn.rotation.z = -PI / 2.0
+		Util.col_box(self, Vector3(0.9, 0.8, 0.5), Vector3(14.6, 0.4, -9.8))
 	forge_light = OmniLight3D.new()
 	forge_light.light_color = Color(1, 0.54, 0.24)
 	forge_light.light_energy = 1.4

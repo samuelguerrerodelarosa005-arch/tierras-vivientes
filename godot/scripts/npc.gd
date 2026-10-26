@@ -157,6 +157,10 @@ func update(dt: float, t: float) -> void:
 				spd = speed
 				body.rotation.y = lerp_angle(body.rotation.y, atan2(dx, dz), 0.18)
 		else:
+			if place == "forge" and body.gest == "martillar" and body.gest_t > 0.0:
+				# de cara al yunque mientras martilla
+				var at: Vector3 = main.world.anvil_top
+				body.rotation.y = lerp_angle(body.rotation.y, atan2(at.x - pos.x, at.z - pos.z), 0.15)
 			wander_t -= dt
 			if wander_t <= 0.0:
 				wander_t = randf_range(4.0, 9.0)

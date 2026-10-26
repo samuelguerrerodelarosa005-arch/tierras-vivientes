@@ -69,7 +69,9 @@ Los nombres exactos de algunas opciones pueden variar un poco en la 4.8-beta.
 Sin clave, los habitantes usan frases de respaldo. Con una clave de la API de Anthropic, Claude improvisa con
 la personalidad, memoria y rumores de cada uno (la misión y la recompensa las decide siempre el juego).
 
-- En PC: **Ajustes → IA de los habitantes** → pega la clave → Guardar. Se guarda solo en ese equipo.
+- En PC: **Ajustes → IA de los habitantes** → pega la clave → Guardar → **Probar la clave**. Se guarda solo en ese equipo.
+- Si falla, Ajustes muestra el motivo. El más común es el **error 400 por falta de saldo**: la suscripción de Claude
+  (Pro/Max) **no incluye** la API; se paga aparte con crédito en console.anthropic.com → Billing.
 - En el visor: define `tierras_vivas/ai/api_key` en **Proyecto → Configuración del proyecto** antes de exportar.
   Hazlo solo para tu APK personal y **no compartas ese APK**: la clave va dentro y se puede extraer.
 
@@ -103,7 +105,7 @@ Capturas para revisar el aspecto sin visor: `godot --path godot -- --shots` (gua
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 34 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, guardado
+godot --headless --path godot -- --smoke   # 35 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 ```
 

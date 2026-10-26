@@ -21,6 +21,7 @@ var th: Theme
 var root: Control
 var hud: Control
 var refs := {}
+var ai_test_msg := ""   # resultado de «Probar la clave»
 var windows := {}
 var dirty := {}
 var menu_tab := "inv"
@@ -941,6 +942,19 @@ func _menu_settings(b: VBoxContainer) -> void:
 		del.custom_minimum_size.x = 120
 		b.add_child(row([le, save, del]))
 		b.add_child(L("La clave se guarda solo en este dispositivo (user://). Úsala solo en tu propio equipo.", 13, C_BRASS))
+	if has_key:
+		var test := B("Probar la clave" if ai_test_msg != "…" else "Probando…", func():
+			if ai_test_msg == "…":
+				return
+			ai_test_msg = "…"
+			mark("menu")
+			ai_test_msg = await main.dialogue.test_key()
+			mark("menu")
+		, false, 42)
+		b.add_child(test)
+	var shown: String = ai_test_msg if ai_test_msg not in ["", "…"] else str(main.dialogue.last_error)
+	if shown != "":
+		b.add_child(L(shown, 15, C_OK if shown.begins_with("Funciona") else Color(1.0, 0.55, 0.45)))
 	b.add_child(section("Partida"))
 	_setting_row(b, "Borrar la partida guardada", [B("Pulsa otra vez" if wipe_confirm else "Borrar", func():
 		if wipe_confirm:
