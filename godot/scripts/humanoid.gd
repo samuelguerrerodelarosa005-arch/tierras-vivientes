@@ -139,7 +139,7 @@ func _find_animation_player(root: Node) -> AnimationPlayer:
 	return null
 
 
-func _play_imported_animation(candidates: Array[String]) -> void:
+func _play_imported_animation(candidates: Array) -> void:
 	if imported_anim_player == null:
 		return
 	for candidate in candidates:
