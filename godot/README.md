@@ -79,17 +79,24 @@ la personalidad, memoria y rumores de cada uno (la misión y la recompensa las d
   `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
 - **Voces de los habitantes**: usan el texto a voz del sistema (Windows o Android). La calidad depende del dispositivo.
 
-## Mejorar los gráficos
+## Mejora visual y modelos 3D
 
-Cada parte del mundo está en una función de `scripts/world.gd` (`_bakery`, `_forge`, `_tavern`…) y los personajes en
-`scripts/humanoid.gd`. Para meter arte real:
+La rama `visual-realista-quest3s` incluye una primera pasada de iluminación, paleta naturalista, entramado de madera y piedra,
+árboles por capas y detalles de vestuario/rostro. Las casas también tienen un punto de integración para modelos GLB.
 
-1. Descarga modelos con licencia libre en `.glb` (por ejemplo los packs CC0 de **Quaternius** o **Kenney**) y
-   arrástralos a una carpeta `models/` del proyecto.
-2. En la función del edificio, cambia las primitivas por `load("res://models/xxx.glb").instantiate()` en la misma posición.
-   Las colisiones (`Util.col_box`) pueden quedarse igual.
-3. Para personajes animados, sustituye `humanoid.gd` por un modelo con `AnimationPlayer` (caminar, hablar, gestos)
-   y llama a sus animaciones desde `animate()`.
+### Añadir modelos externos
+
+1. Revisa `models/README.md` antes de importar assets. Usa solo modelos cuya licencia permita el uso y redistribución deseados.
+2. Para probar una casa GLB, coloca el modelo en `models/environment/medieval_house.glb`. El código lo carga automáticamente;
+   si el archivo no existe, conserva las casas procedurales. Puede que tengas que ajustar escala y rotación según el origen del modelo.
+3. Para árboles, utiliza modelos de bajo/medio detalle y evita crear cientos de nodos independientes; la versión procedural por capas
+   sigue siendo el fallback ligero.
+4. Los habitantes siguen usando `scripts/humanoid.gd`. Para convertirlos a personajes realistas hace falta un GLB riggeado con
+   animaciones compatibles y adaptar `animate()`; no reemplaces el archivo por un modelo estático o se romperán sus gestos.
+
+**Estado honesto:** este repositorio no incluye todavía archivos de modelos GLB realistas. Los cambios preparan el punto de carga
+y documentan cómo integrarlos, pero todavía hace falta elegir/importar assets con licencia comprobada y ejecutar una prueba en Godot
+y Quest 3S antes de considerar la mejora terminada.
 
 ## Prueba automática
 
