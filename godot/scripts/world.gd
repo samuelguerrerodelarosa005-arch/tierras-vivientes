@@ -139,6 +139,27 @@ func _ground_color(x: float, z: float) -> Color:
 # ---------- edificios ----------
 
 func _house(cx: float, cz: float, w: float, d: float, h: float, wall: String, roof_c: String, door: String) -> Node3D:
+	# Si hay un modelo GLB de casa, úsalo; si no, conserva la versión procedural.
+	# El archivo opcional se documenta en godot/models/README.md.
+	var glb_path := "res://models/environment/medieval_house.glb"
+	if ResourceLoader.exists(glb_path):
+		var packed := load(glb_path) as PackedScene
+		if packed:
+			var model_root := Node3D.new()
+			model_root.name = "HouseModel"
+			model_root.position = Vector3(cx, 0, cz)
+			add_child(model_root)
+			var model := packed.instantiate()
+			model.name = "ImportedMedievalHouse"
+			model_root.add_child(model)
+			# Ajusta esta escala una vez al modelo elegido; el tamaño de referencia es ~8 m.
+			model.scale = Vector3.ONE * clampf(maxf(w, d) / 8.0, 0.45, 1.8)
+			if door == "-x":
+				model.rotation.y = PI * 0.5
+			elif door == "+x":
+				model.rotation.y = -PI * 0.5
+			Util.col_box(self, Vector3(w, h, d), Vector3(cx, h * 0.5, cz))
+			return model_root
 	var g := Node3D.new()
 	g.position = Vector3(cx, 0, cz)
 	add_child(g)
