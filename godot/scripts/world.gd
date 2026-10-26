@@ -142,18 +142,38 @@ func _house(cx: float, cz: float, w: float, d: float, h: float, wall: String, ro
 	var g := Node3D.new()
 	g.position = Vector3(cx, 0, cz)
 	add_child(g)
-	Util.box(g, Vector3(w, h, d), Util.mat(Util.hex(wall)), Vector3(0, h * 0.5, 0))
-	Util.box(g, Vector3(w + 0.3, 0.25, d + 0.3), Util.mat(Util.hex("#5a4a3a")), Vector3(0, 0.12, 0))
-	Util.roof(g, w + 0.8, d + 0.8, h * 0.75, Util.mat(Util.hex(roof_c)), Vector3(0, h + h * 0.375, 0))
+	var wall_m := Util.mat(Util.hex(wall))
+	var timber_m := Util.mat(Util.hex("#49372a"))
+	var stone_m := Util.mat(Util.hex("#777064"))
+	var roof_m := Util.mat(Util.hex(roof_c))
+	Util.box(g, Vector3(w, h, d), wall_m, Vector3(0, h * 0.5, 0))
+	# Zócalo de piedra y entramado de madera: detalle geométrico barato para Quest.
+	Util.box(g, Vector3(w + 0.12, 0.34, d + 0.12), stone_m, Vector3(0, 0.20, 0))
+	Util.box(g, Vector3(w + 0.3, 0.25, d + 0.3), timber_m, Vector3(0, 0.12, 0))
+	for x in [-w * 0.46, w * 0.46]:
+		Util.box(g, Vector3(0.13, h - 0.12, 0.14), timber_m, Vector3(x, h * 0.52, d * 0.5 + 0.025))
+		Util.box(g, Vector3(0.13, h - 0.12, 0.14), timber_m, Vector3(x, h * 0.52, -d * 0.5 - 0.025))
+	for z in [-d * 0.46, d * 0.46]:
+		Util.box(g, Vector3(0.14, h - 0.12, 0.13), timber_m, Vector3(w * 0.5 + 0.025, h * 0.52, z))
+		Util.box(g, Vector3(0.14, h - 0.12, 0.13), timber_m, Vector3(-w * 0.5 - 0.025, h * 0.52, z))
+	for y in [0.52, h - 0.22]:
+		Util.box(g, Vector3(w + 0.08, 0.12, 0.12), timber_m, Vector3(0, y, d * 0.5 + 0.035))
+		Util.box(g, Vector3(w + 0.08, 0.12, 0.12), timber_m, Vector3(0, y, -d * 0.5 - 0.035))
+	Util.roof(g, w + 0.8, d + 0.8, h * 0.75, roof_m, Vector3(0, h + h * 0.375, 0))
 	var dz := d * 0.5 + 0.02 if door == "+z" else (-d * 0.5 - 0.02 if door == "-z" else 0.0)
 	var dx := w * 0.5 + 0.02 if door == "+x" else (-w * 0.5 - 0.02 if door == "-x" else 0.0)
-	Util.box(g, Vector3(0.08 if dx != 0.0 else 1.1, 2.0, 0.08 if dz != 0.0 else 1.1), Util.mat(Util.hex("#4a3020")), Vector3(dx, 1.0, dz))
+	var door_m := Util.mat(Util.hex("#39271b"))
+	Util.box(g, Vector3(0.08 if dx != 0.0 else 1.1, 2.0, 0.08 if dz != 0.0 else 1.1), door_m, Vector3(dx, 1.0, dz))
 	if dz != 0.0:
 		for x in [-w / 3.0, w / 3.0]:
 			Util.box(g, Vector3(0.8, 0.7, 0.08), win_mat, Vector3(x, h * 0.6, dz))
+			Util.box(g, Vector3(0.88, 0.08, 0.12), timber_m, Vector3(x, h * 0.6 + 0.39, dz))
+			Util.box(g, Vector3(0.08, 0.78, 0.12), timber_m, Vector3(x, h * 0.6, dz))
 	else:
 		for z in [-d / 3.0, d / 3.0]:
 			Util.box(g, Vector3(0.08, 0.7, 0.8), win_mat, Vector3(dx, h * 0.6, z))
+			Util.box(g, Vector3(0.12, 0.08, 0.88), timber_m, Vector3(dx, h * 0.6 + 0.39, z))
+			Util.box(g, Vector3(0.12, 0.78, 0.08), timber_m, Vector3(dx, h * 0.6, z))
 	Util.col_box(self, Vector3(w, h, d), Vector3(cx, h * 0.5, cz))
 	return g
 
