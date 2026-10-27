@@ -3,3 +3,4 @@
 *.apk
 *.aab
 export_credentials.cfg
+/ia/

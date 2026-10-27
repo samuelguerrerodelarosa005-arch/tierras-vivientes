@@ -340,3 +340,13 @@ Prototipo en navegador que corre en el Quest 3S (Meta Quest Browser → "Entrar 
 - Modo de pie / sentado.
 
 Limitaciones honestas: modelos 3D hechos con primitivas (no arte final), un jugador, sin persistencia en servidor, y el reconocimiento de voz depende de lo que soporte el navegador del visor.
+
+## 12. Estado del proyecto Godot (PC VR)
+
+| Fase | Qué incluye | Estado |
+|---|---|---|
+| 0 | Paso a PC VR (Link / SteamVR), calidad gráfica, mandos de PC, sin APIs de pago | Hecha |
+| 1 | Mundo vivo: economía con oro real, misiones que nacen de problemas, escrow, regateo, plazos, cadenas, hechos y rumores, reputación (miedo, respeto, cariño, confianza), ambiciones | Hecha (prueba `--month`) |
+| 2 | Conversación por voz sin menús: micrófono con detección de voz → whisper.cpp → llama.cpp (entiende) → el juego decide → llama.cpp (dice, sin cifras) → Piper (voz 3D por NPC). Instalador `instalar_ia.bat`; servidor propio opcional | Hecha en simulación (prueba `--voicetest`); falta probar en el PC con visor |
+| 2b | Voces clonadas con consentimiento; interrumpir al NPC mientras habla; respuestas en streaming | Pendiente |
+| 3 | Camino oscuro: verbos de ataque, ciudades seguras, muerte de NPC fuera de la ciudad, misiones de defensa por rumores | Diseñada, sin implementar |

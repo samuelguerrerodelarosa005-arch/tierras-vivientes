@@ -965,8 +965,30 @@ func _menu_settings(b: VBoxContainer) -> void:
 		, int(Game.settings.quality) == qi, 42))
 	_setting_row(b, "Calidad", qs)
 	b.add_child(L("Baja: sin sombras ni efectos. Ultra: sombras largas, oclusión ambiental, brillo y más resolución en VR. Si notas tirones en el visor, baja un nivel: en VR los tirones marean.", 14, C_MUTED))
-	b.add_child(section("IA de los habitantes"))
-	b.add_child(L("Ahora los habitantes hablan con su guion. La IA local (en tu PC, sin pagar APIs) llegará en la fase 2.", 15, C_MUTED))
+	b.add_child(section("Conversación por voz (IA local)"))
+	b.add_child(L(main.ai.status_text() if main.ai else "Sin IA.", 15, C_TEXT))
+	var vm := str(Game.settings.get("voice_mode", "auto"))
+	_setting_row(b, "Hablar con los habitantes", [
+		B("Mirar y hablar", func(): _set_opt("voice_mode", "auto"), vm == "auto", 42),
+		B("Mantener Y / V", func(): _set_opt("voice_mode", "ptt"), vm == "ptt", 42),
+		B("Desactivada", func(): _set_opt("voice_mode", "off"), vm == "off", 42)])
+	if main.voice_in and main.voice_in.mic_ok:
+		var devs: PackedStringArray = main.voice_in.devices()
+		var cur := str(Game.settings.get("mic_device", ""))
+		if cur == "":
+			cur = AudioServer.input_device
+		_setting_row(b, "Micrófono: %s" % cur, [B("Cambiar", func():
+			var i := devs.find(cur)
+			var nx: String = devs[(i + 1) % devs.size()] if devs.size() > 0 else ""
+			main.voice_in.set_device(nx)
+			_set_opt("mic_device", nx)
+		, false, 42)])
+	else:
+		b.add_child(L("Micrófono no disponible. En Windows: Configuración → Privacidad → Micrófono → permitir a las apps de escritorio.", 14, C_MUTED))
+	_setting_row(b, "Volumen de las voces: %d %%" % roundi(float(Game.settings.get("voice_volume", 1.0)) * 100.0), [
+		B("−", func(): _set_opt("voice_volume", clampf(float(Game.settings.get("voice_volume", 1.0)) - 0.1, 0.1, 2.0)), false, 42),
+		B("+", func(): _set_opt("voice_volume", clampf(float(Game.settings.get("voice_volume", 1.0)) + 0.1, 0.1, 2.0)), false, 42)])
+	b.add_child(L("Acércate a un habitante, mírale y háblale. La IA solo entiende y habla: las misiones, la paga y si acepta tu regateo los decide el juego. Si falta la IA, ejecuta «instalar_ia.bat» (junto al juego) una vez.", 14, C_MUTED))
 	b.add_child(section("Partida"))
 	_setting_row(b, "Borrar la partida guardada", [B("Pulsa otra vez" if wipe_confirm else "Borrar", func():
 		if wipe_confirm:

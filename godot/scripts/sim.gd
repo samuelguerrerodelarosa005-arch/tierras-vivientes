@@ -351,6 +351,12 @@ func _learn(id: String, f: Dictionary, cert: float) -> void:
 			rep.respeto = minf(100.0, float(rep.respeto) + 3.0 * cert)
 		"murio":
 			rep.respeto = maxf(-100.0, float(rep.respeto) - 1.0 * cert)
+		"insulto":
+			rep.carino = maxf(-100.0, float(rep.carino) - (4.0 if tgt == id else (2.0 if likes_target else 0.5)) * cert)
+			rep.respeto = maxf(-100.0, float(rep.respeto) - 1.0 * cert)
+		"amenaza":
+			rep.miedo = minf(100.0, float(rep.miedo) + (8.0 if tgt == id else 4.0) * cert)
+			rep.carino = maxf(-100.0, float(rep.carino) - (6.0 if tgt == id else (3.0 if likes_target else 1.0)) * cert)
 	_check_world_titles()
 
 

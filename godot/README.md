@@ -89,11 +89,29 @@ La simulación (`scripts/sim.gd`) es la que manda; los gráficos solo la muestra
 - **Miedo**: con muchos limos, Lía se encierra en casa y pide escolta.
 - Menú → **Relaciones**: qué piensa cada uno de ti, su meta actual y lo que sabe de ti.
 
-## IA de los habitantes
+## Hablar con los habitantes (fase 2, IA local)
 
-Ahora hablan con su **guion**. No hay APIs de pago: la IA local (modelo de lenguaje, voces diseñadas y clonadas,
-reconocimiento de voz, todo en el PC del jugador) llega en la **fase 2**. El hueco ya está preparado:
-`dialogue.ai_provider` en `scripts/dialogue.gd`.
+**Te acercas, le miras y le hablas.** Sin menús. Todo corre en tu PC y es gratis (sin APIs de pago).
+
+1. Una vez: ejecuta **`instalar_ia.bat`** (junto al `.exe`). Descarga unos 3,5 GB a la carpeta `ia/`:
+   - **Cerebro**: llama.cpp (por Vulkan, vale para cualquier tarjeta) + Qwen3 4B (~2,5 GB, ~3 GB de VRAM).
+   - **Oído**: whisper.cpp con large-v3-turbo en la tarjeta NVIDIA; si falla, versión de procesador con `small`.
+   - **Voces**: Piper, una voz española por habitante (davefx, sharvard, ald, daniela). Corre en el procesador.
+   La primera vez, la tarjeta gráfica tarda 1–5 minutos en preparar el oído (la prueba del instalador lo hace).
+2. Abre el juego. Menú → Ajustes → **Conversación por voz** dice si está todo listo.
+3. Acércate (menos de 3,4 m) y mira a un habitante: aparece «te escucha». Habla normal. Dos modos:
+   **Mirar y hablar** (detecta solo cuándo hablas) o **Mantener Y / V** (botón Y del mando izquierdo o tecla V).
+
+**Quién decide qué** (así la IA no puede romper el mundo):
+- La IA **entiende** lo que dices: pedir trabajo, aceptar, rechazar, regatear, entregar, rumores, insultos, amenazas…
+- El **juego decide** qué pasa: qué misión hay, cuánto paga (solo lo que el NPC tiene), si el regateo sale bien.
+- La IA **dice** el resultado con la personalidad del NPC. La gramática no le deja escribir cifras: la paga y el
+  plazo los añade el juego, siempre ciertos. Si la IA te entendió un «sí» dudoso, el NPC pregunta «¿Trato hecho?».
+- Insultar o amenazar se recuerda, deja testigos y corre como rumor (respeto, cariño y miedo cambian).
+
+Sin la carpeta `ia/`, todo funciona como antes: guion y botones. Sin cerebro pero con oído, entiende por palabras clave.
+**Servidor propio**: en `ia/config.json` pon `"servidor": "http://IP-del-otro-PC"` (puertos 8180 y 8181).
+**Voces clonadas** (de una persona real, con su permiso): todavía no; el hueco está en `scripts/ai/voice_out.gd`.
 
 ## Qué falta
 
@@ -101,7 +119,9 @@ reconocimiento de voz, todo en el PC del jugador) llega en la **fase 2**. El hue
   o Whisper). Mientras tanto, los hechizos se lanzan con gesto, gatillo o teclas.
 - **Lanzamiento probado solo en simulación**: el umbral del gesto de lanzar (2,2 m/s, `THROW_SPEED` en
   `scripts/player.gd`) no se ha probado en el visor. Si se dispara solo o cuesta lanzarlo, sube o baja ese número.
-- **Voces de los habitantes**: por ahora usan el texto a voz de Windows. Las voces con IA llegan en la fase 2.
+- **Voz probada solo en simulación**: la cadena micro → oído → cerebro → voz se prueba aquí con servidores simulados
+  y con llama.cpp real (modelo diminuto). Falta probarla en tu PC con el visor: el umbral del micro
+  (`voice_in.gd`), el eco de los altavoces y la latencia real.
 
 ## Gráficos y modelos
 
@@ -125,10 +145,13 @@ Capturas para revisar el aspecto sin visor: `godot --path godot -- --shots` (gua
 ## Prueba automática
 
 ```
-godot --headless --path godot -- --smoke   # 35 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, sin API de pago, guardado
+godot --headless --path godot -- --smoke   # 39 comprobaciones: diálogo, forja, comida, hechizos, rumores, portal, panel VR, gestos, apuntar y lanzar, modelos animados, sin API de pago, voz sin cifras, guardado
 godot --headless --path godot -- --soak    # simulación acelerada del pueblo
 godot --headless --path godot -- --month   # 30 días con un jugador automático: misiones, cadenas, ambiciones, economía
 ```
+
+`--voicetest` habla con Bruno y Lía con frases grabadas (pedir trabajo, regatear, ruido, aceptar, insultar, despedirse,
+«¿Trato hecho?»). Necesita `TIERRAS_IA_DIR` (con Piper y voces) y servidores reales o simulados.
 
 `--month` acepta `MONTH_DAYS` y `MONTH_SEED` (variables de entorno). Falla si no hay misiones variadas, si no se
 encadenan, si nadie sube de peldaño, si alguien paga oro que no tiene o si el precio del pan nunca cambia.
@@ -139,6 +162,10 @@ encadenan, si nadie sube de peldaño, si alguien paga oro que no tiene o si el p
 |---|---|
 | `scripts/main.gd` | Bucle del juego, interactuables, hechizos, forja, comida, tienda, rumores, portal, cielo, guardado |
 | `scripts/sim.gd` | Mundo vivo: economía, miedo, hechos y rumores, reputación, director de misiones, ambiciones |
+| `scripts/ai/talk.gd` | Conversación por voz: a quién miras, entender → decidir (juego) → decir |
+| `scripts/ai/ai_local.gd` | Arranca y vigila llama-server y whisper-server; servidor propio opcional |
+| `scripts/ai/voice_in.gd` / `voice_out.gd` | Micrófono con detección de voz · voces Piper en 3D |
+| `tools/ia/instalar_ia.ps1` | Instalador de la IA para Windows (lo lanza `instalar_ia.bat`) |
 | `scripts/game.gd` | Datos y estado global (autoload `Game`): trabajos, sinergias, misiones, títulos, guardado |
 | `scripts/player.gd` | Jugador en primera persona: PC, mandos y hand tracking (OpenXR) |
 | `scripts/npc.gd` + `scripts/data.gd` | Habitantes: agenda, rutas, visitas, memoria, afinidad, rumores |

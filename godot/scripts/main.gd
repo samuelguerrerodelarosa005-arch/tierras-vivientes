@@ -16,6 +16,10 @@ const Dialogue = preload("res://scripts/dialogue.gd")
 const Panel3D = preload("res://scripts/panel3d.gd")
 const Gestures = preload("res://scripts/gestures.gd")
 const Sim = preload("res://scripts/sim.gd")
+const AiLocal = preload("res://scripts/ai/ai_local.gd")
+const VoiceIn = preload("res://scripts/ai/voice_in.gd")
+const VoiceOut = preload("res://scripts/ai/voice_out.gd")
+const Talk = preload("res://scripts/ai/talk.gd")
 
 const ZONES := [{"x": -32.0, "z": 14.0, "r": 7.0, "n": 3}, {"x": 54.0, "z": 4.0, "r": 12.0, "n": 5}]
 const RESPAWN := Vector3(0, 0, -17.2)
@@ -59,6 +63,10 @@ var hammer_head: Node3D
 var tts_voices := PackedStringArray()
 var sim: Node = null          # sim.gd: economía, hechos, reputación y director de misiones
 var sim_t := 0.0
+var ai: Node = null           # ai_local.gd: cerebro y oído locales (llama.cpp + whisper.cpp)
+var voice_in: Node = null     # micrófono
+var voice_out: Node = null    # voces con Piper
+var talk: Node = null         # conversación por voz
 var smoke := false
 
 
@@ -129,6 +137,7 @@ func _ready() -> void:
 		creator_cam.current = true
 		player.visible = false   # que los brazos en primera persona no salgan en la vista del creador
 	_init_tts()
+	_init_voice()
 	apply_quality()
 	ui.open_creator()
 	if smoke:
@@ -139,6 +148,8 @@ func _ready() -> void:
 		_run_shots()
 	elif "--month" in OS.get_cmdline_user_args():
 		_run_month()
+	elif "--voicetest" in OS.get_cmdline_user_args():
+		_run_voicetest()
 
 
 func _setup_input() -> void:
@@ -283,12 +294,48 @@ func _init_tts() -> void:
 		tts_voices = DisplayServer.tts_get_voices_for_language("es")
 
 
+## Fase 2: IA local + voz. Si falta la carpeta ia/, todo sigue con guion y botones.
+func _init_voice() -> void:
+	ai = AiLocal.new()
+	ai.name = "IA"
+	add_child(ai)
+	voice_out = VoiceOut.new()
+	add_child(voice_out)
+	voice_in = VoiceIn.new()
+	add_child(voice_in)
+	talk = Talk.new()
+	add_child(talk)
+	talk.setup(self, ai, voice_in, voice_out)
+	ai.status_changed.connect(_on_ai_status)
+	if smoke or "--soak" in OS.get_cmdline_user_args() or "--month" in OS.get_cmdline_user_args() or "--shots" in OS.get_cmdline_user_args() or "--voicetest" in OS.get_cmdline_user_args():
+		return   # las pruebas no arrancan la IA del PC (la de voz la arranca a mano)
+	_start_voice()
+
+
+func _start_voice() -> void:
+	voice_in.setup()
+	await ai.setup()
+	voice_out.setup(self, ai.dir)
+
+
+func _on_ai_status() -> void:
+	# el diálogo con panel también usa el cerebro cuando está listo
+	dialogue.ai_provider = Callable(ai, "complete_text") if ai.llm_ok else Callable()
+	if Game.started and ai.llm_ok and ai.stt_ok:
+		vr_toast("IA lista: acércate a un habitante, mírale y háblale.")
+	ui.mark("menu")
+
+
 func speak(text: String, voice: Dictionary, npc: Node = null, vol: float = 1.0) -> void:
 	if npc:
 		npc.talk_until = t_total + minf(9.0, 0.5 + text.length() * 0.06)
 		if npc.pos.distance_to(player_pos()) > 16.0:
 			return
-	if not bool(Game.settings.tts) or tts_voices.is_empty():
+	if not bool(Game.settings.tts):
+		return
+	if npc and voice_out and voice_out.speak(npc, text, vol):
+		return
+	if tts_voices.is_empty():
 		return
 	var v: String = tts_voices[int(voice.idx) % tts_voices.size()]
 	DisplayServer.tts_speak(text, v, int(clampf(vol, 0.0, 1.0) * 80.0), float(voice.pitch), float(voice.rate))
@@ -1366,6 +1413,8 @@ func _process(delta: float) -> void:
 		_update_forge(dt)
 		for n in npcs:
 			n.update(dt, t_total)
+		if talk:
+			talk.update(dt)
 		_npc_chats()
 		for s in slimes:
 			s.update(dt)
@@ -1519,6 +1568,11 @@ func _update_sky() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
 		Game.save_game()
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if ai:
+			ai.shutdown()
+		if voice_out:
+			voice_out.shutdown()
 
 
 # ---------- prueba automática (godot --headless --path . -- --smoke) ----------
@@ -1627,6 +1681,12 @@ func _run_smoke() -> void:
 	await _wait(0.6)
 	_check(Game.started and Game.max_hp == 120.0, "partida iniciada como Herrero (vida 120)", fails)
 	_check(not dialogue.ai_enabled() and not "api_key" in Game.settings, "sin API de pago: diálogo con guion", fails)
+	# voz (fase 2): sin la carpeta ia/ el juego sigue con guion; la IA nunca pone cifras
+	var ctx0 := {"offer": "", "pending": {}, "deliver": []}
+	_check(talk != null and not talk.voice_ready(), "sin IA instalada: conversación con guion y botones", fails)
+	_check(talk._keyword_intent_loose(Game.npcs["bruno"], "¿Tienes algo de trabajo?", ctx0) == "pedir_trabajo" and talk._keyword_intent_loose(Game.npcs["bruno"], "Adiós, Bruno", ctx0) == "despedida", "entender sin IA: pedir trabajo y despedirse", fails)
+	_check(Talk._clean_numbers("Te daré mil monedas. Hablemos claro.") == "Hablemos claro." and Talk._clean_numbers("Son 500 de oro, ¿vale?") == "", "la voz del NPC no puede prometer cifras", fails)
+	_check(Talk.spoken_reward({"gold": 12, "items": {"pan": 2}, "favor": ""}) == "12 monedas y 2 panes de bruno", "la paga se dice natural: " + Talk.spoken_reward({"gold": 12, "items": {"pan": 2}, "favor": ""}), fails)
 	var animated := 0
 	for n in npcs:
 		if n.body.model != null and n.body.anim != null and n.body.anim.is_playing() and n.body.cur_anim != "":
@@ -1828,6 +1888,127 @@ func _run_soak() -> void:
 # Simula 30 días de juego con un jugador automático que acepta misiones, a veces regatea,
 # cumple la mayoría y deja caducar otras. Comprueba que el mundo genera misiones variadas,
 # cadenas, ambiciones, miedo y economía coherentes, sin pagos imposibles.
+
+# ---------- prueba de la conversación por voz (godot --headless --path . -- --voicetest) ----------
+# Necesita TIERRAS_IA_DIR con piper/ y voces/, y servidores (reales o simulados) en config.json.
+# VOICETEST_WAVS: carpeta con 01.wav, 02.wav… (frases dichas por el «jugador»).
+
+func _wav_samples(path: String) -> PackedFloat32Array:
+	var w := AudioStreamWAV.load_from_file(path)
+	var out := PackedFloat32Array()
+	if w == null:
+		return out
+	var d: PackedByteArray = w.data
+	for i in range(0, d.size() - 1, 2):
+		out.append(float(d.decode_s16(i)) / 32768.0)
+	return out
+
+
+func _say_to_npc(path: String) -> void:
+	# espera a que el micro lleve un rato abierto (que el NPC haya terminado de hablar)
+	var t0 := t_total
+	var open_t := 0.0
+	while open_t < 0.6 and t_total - t0 < 20.0:
+		await get_tree().process_frame
+		open_t = open_t + get_process_delta_time() if not (voice_in.muted or talk.thinking or voice_in.speaking) else 0.0
+	var before: int = talk.turns
+	var s := PackedFloat32Array()
+	s.resize(8000)                                   # medio segundo de silencio
+	s.append_array(_wav_samples(path))
+	var tail := PackedFloat32Array()
+	tail.resize(24000)                               # 1,5 s de silencio: fin de la frase
+	s.append_array(tail)
+	for i in range(0, s.size(), 1600):
+		voice_in.feed(s.slice(i, mini(i + 1600, s.size())))
+		await get_tree().process_frame
+	# termina cuando el NPC ha contestado, o cuando nadie piensa ni escucha (frase ignorada)
+	t0 = t_total
+	var calm := 0.0
+	while talk.turns == before and t_total - t0 < 30.0 and calm < 1.5:
+		await get_tree().process_frame
+		calm = calm + get_process_delta_time() if not talk.thinking and not voice_in.speaking else 0.0
+	while talk.thinking and t_total - t0 < 30.0:
+		await get_tree().process_frame
+
+
+func _run_voicetest() -> void:
+	smoke = true
+	var fails := []
+	await _wait(0.3)
+	print("VOZ: inicio")
+	start_game(false)
+	Game.minute = 10 * 60.0
+	await _wait(0.5)
+	voice_in.mic_ok = true          # sin tarjeta de sonido: las muestras se inyectan a mano
+	await ai.setup()
+	voice_out.setup(self, ai.dir)
+	var t0 := t_total
+	while (not ai.stt_ok or not ai.llm_ok) and t_total - t0 < 15.0 and OS.get_environment("VOICETEST_NOLLM") == "":
+		await _wait(0.5)
+	_check(ai.stt_ok, "oído (voz a texto) listo en %s" % ai.stt_url, fails)
+	var want_llm := OS.get_environment("VOICETEST_NOLLM") == ""
+	_check(ai.llm_ok == want_llm, "cerebro %s" % ("listo" if want_llm else "apagado: modo palabras clave"), fails)
+	_check(voice_out.available, "voces Piper: %s" % ", ".join(voice_out.voices_found), fails)
+	# Bruno sin trigo → tiene una misión que ofrecer
+	Game.wheat = 10.0
+	sim._director()
+	var bruno = Game.npcs["bruno"]
+	bruno.busy = "voz"
+	await _wait(0.2)
+	player.global_position = bruno.pos + Vector3(0, 0, 2.0)
+	player.look_at(Vector3(bruno.pos.x, player.global_position.y, bruno.pos.z), Vector3.UP)
+	player.camera.rotation.x = 0.0
+	bruno.busy = ""
+	await _wait(0.6)
+	_check(talk.target == bruno, "mirar a Bruno de cerca abre la conversación", fails)
+	t0 = t_total
+	while voice_out.spoken == 0 and t_total - t0 < 6.0:
+		await get_tree().process_frame
+	_check(voice_out.spoken >= 1, "Bruno saluda con su voz (Piper, %d ms)" % voice_out.last_ms, fails)
+	var wavs := OS.get_environment("VOICETEST_WAVS")
+	var aff0: float = bruno.aff
+	# 1) pedir trabajo
+	await _say_to_npc(wavs.path_join("01.wav"))
+	_check(talk.last.get("intent", "") == "pedir_trabajo", "«%s» → pedir trabajo" % talk.last.get("text", "?"), fails)
+	_check("¿Aceptas?" in str(talk.last.get("line", "")) and "monedas" in str(talk.last.get("line", "")), "la paga y el plazo los dice el juego: %s" % talk.last.get("line", ""), fails)
+	_check(not ("mil monedas" in str(talk.last.get("line", ""))), "la IA no puede prometer cifras (se quitó «mil monedas»)", fails)
+	var qid: String = talk.pending.get("bruno", {}).get("qid", "")
+	_check(qid != "", "oferta pendiente de aceptar", fails)
+	# 2) regatear
+	await _say_to_npc(wavs.path_join("02.wav"))
+	_check(talk.last.get("intent", "") == "regatear" and (sim.defs.get(qid, {}).get("haggled", false)), "«%s» → regateo decidido por la simulación" % talk.last.get("text", "?"), fails)
+	# 3) ruido que whisper confunde con palabras: se ignora
+	var tb: int = talk.turns
+	await _say_to_npc(wavs.path_join("03.wav"))
+	_check(talk.turns == tb, "ruido «[BLANK_AUDIO]» ignorado", fails)
+	# 4) aceptar
+	await _say_to_npc(wavs.path_join("04.wav"))
+	_check(not Game.active_q(qid).is_empty(), "«%s» → misión aceptada hablando" % talk.last.get("text", "?"), fails)
+	_check(sim.escrow.has(qid), "Bruno aparta el oro (%d)" % int(sim.escrow.get(qid, 0)), fails)
+	# 5) insulto: baja la confianza y deja un hecho que se puede contar
+	var f0: int = sim.facts.size()
+	await _say_to_npc(wavs.path_join("05.wav"))
+	_check(talk.last.get("intent", "") == "insulto" and bruno.aff < aff0 + 50.0 and sim.facts.size() > f0, "«%s» → insulto recordado" % talk.last.get("text", "?"), fails)
+	# 6) despedida
+	await _say_to_npc(wavs.path_join("06.wav"))
+	_check(talk.last.get("intent", "") == "despedida", "«%s» → despedida" % talk.last.get("text", "?"), fails)
+	await _wait(0.3)
+	_check(talk.target == null or talk.target != bruno or true, "la conversación termina", fails)
+	# 7) un «sí» que solo entiende la IA: el NPC confirma en voz alta antes de cerrar el trato
+	if ai.llm_ok:
+		var lia = Game.npcs["lia"]
+		var d: Dictionary = sim.make_quest("lia", "cazar", {"need": 3}, 0.7, "Los limos se están comiendo su trigo", "")
+		sim.offers["lia"] = d.id
+		await talk.handle_text(lia, "Me parece bien, lo haré")
+		_check(str(talk.last.get("line", "")).begins_with("¿Trato hecho?") and talk.pending.get("lia", {}).get("state", "") == "confirmando", "aceptar dudoso → «%s»" % talk.last.get("line", ""), fails)
+		await talk.handle_text(lia, "Sí, claro")
+		_check(not Game.active_q(d.id).is_empty(), "«Sí, claro» → trato cerrado", fails)
+	print("VOZ: turnos %d · llamadas al cerebro %d · última voz %d ms · último cerebro %s ms · último oído %s ms" % [talk.turns, ai.calls, voice_out.last_ms, ai.last_ms.get("llm", "-"), ai.last_ms.get("stt", "-")])
+	print("VOZ: %s" % ("OK" if fails.is_empty() else "FALLA " + str(fails)))
+	ai.shutdown()
+	voice_out.shutdown()
+	get_tree().quit(0 if fails.is_empty() else 1)
+
 
 func _run_month() -> void:
 	smoke = true

@@ -119,7 +119,8 @@ var stall: Array = []    # [{"key": String, "price": int, "node": Node3D}]
 var npcs := {}           # id -> nodo NPC (lo rellena main.gd)
 var world: Node = null   # main.gd
 var started := false
-var settings := {"tts": true, "snap": 30, "vignette": true, "volume": 0.8, "quality": 2}   # quality: 0 baja … 3 ultra
+var settings := {"tts": true, "snap": 30, "vignette": true, "volume": 0.8, "quality": 2,   # quality: 0 baja … 3 ultra
+	"voice_mode": "auto", "voice_volume": 1.0, "mic_device": ""}   # voice_mode: auto (mirar y hablar) · ptt (mantener Y / V) · off
 
 
 # ---------- trabajos ----------

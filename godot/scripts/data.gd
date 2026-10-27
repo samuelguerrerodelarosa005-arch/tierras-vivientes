@@ -29,6 +29,7 @@ const NPC_DEFS := [
 		"look": {"skin": "#c98e66", "hair": "#3a2a1e", "hair_style": "rapado", "outfit": "#e9e2d0", "pants": "#5b4636", "height": 1.74, "build": 1.28, "apron": true, "beard": true,
 			"model": "barbaro", "hide": ["Barbarian_Hat", "Barbarian_Cape"]},
 		"voice": {"pitch": 0.7, "rate": 0.95, "idx": 0},
+		"piper": {"model": "es_ES-davefx-medium", "speaker": 0, "length": 1.0, "pitch": 0.94, "fallback_pitch": 0.92},
 		"sched": [[6, "bakery"], [19, "tavern_b"], [22, "bakery_home"]],
 		"lines": {
 			"greet": ["¿Pan? Recién sacado del horno. Bueno, de hace una hora.", "Hmph. Otro Viajero. ¿Vienes a comprar o a mirar?"],
@@ -46,6 +47,7 @@ const NPC_DEFS := [
 		"look": {"skin": "#e3b48c", "hair": "#8a4a1f", "hair_style": "coleta", "outfit": "#6f8f3a", "pants": "#4a3a28", "height": 1.62, "build": 0.92,
 			"model": "picara", "hide": ["Rogue_Cape"]},
 		"voice": {"pitch": 1.35, "rate": 1.12, "idx": 1},
+		"piper": {"model": "es_ES-sharvard-medium", "speaker": 1, "length": 0.9, "pitch": 1.06, "fallback_pitch": 1.3},
 		"sched": [[6, "field"], [11, "fountain_l"], [13, "field2"], [18, "fountain_l2"], [21, "lia_home"]],
 		"lines": {
 			"greet": ["¡Holita! ¿Viste qué doradito está el trigo hoy?", "¡Ay, un Viajero! ¿Me cuentas cosas de afuera?"],
@@ -63,6 +65,7 @@ const NPC_DEFS := [
 		"look": {"skin": "#a8714c", "hair": "#d8d4cc", "hair_style": "corto", "outfit": "#4a4038", "pants": "#2e2722", "height": 1.82, "build": 1.22, "apron": true, "beard": true,
 			"model": "caballero", "hide": ["Knight_Helmet", "Knight_Cape"], "tool": "martillo"},
 		"voice": {"pitch": 0.55, "rate": 0.86, "idx": 2},
+		"piper": {"model": "es_MX-ald-medium", "speaker": 0, "length": 1.12, "pitch": 0.86, "fallback_pitch": 0.82},
 		"sched": [[7, "forge"], [18, "tavern_d"], [20, "plaza_d"], [21, "dorran_home"]],
 		"lines": {
 			"greet": ["El yunque está libre. Si sabes usarlo.", "Hmm. Tus manos no tienen callos todavía."],
@@ -80,6 +83,7 @@ const NPC_DEFS := [
 		"look": {"skin": "#7a5440", "hair": "#141018", "hair_style": "largo", "outfit": "#3b3f6e", "pants": "#26243a", "height": 1.7, "build": 0.95, "cape": true, "cape_color": "#20224a",
 			"model": "maga", "show": ["2H_Staff"]},
 		"voice": {"pitch": 1.08, "rate": 0.9, "idx": 3},
+		"piper": {"model": "es_AR-daniela-high", "speaker": 0, "length": 1.08, "pitch": 0.98, "fallback_pitch": 1.18},
 		"sched": [[6, "plaza_s"], [8, "sanct"], [18, "portal_s"]],
 		"lines": {
 			"greet": ["La luna te ve, Viajero. Yo también.", "Bienvenido. El portal duerme de día."],
@@ -107,6 +111,13 @@ const OPINION := {
 }
 
 const FILLERS := {"bruno": "Hmph…", "lia": "¡Ay, a ver…!", "dorran": "Hmm.", "sira": "Mmm…"}
+## Muletillas para la conversación por voz: tapan el segundo que tarda en pensar.
+const FILLERS_V := {
+	"bruno": ["Hmph…", "A ver…", "Mmm, ya.", "¡Por mis hornos…!"],
+	"lia": ["¡Ay, a ver…!", "Mmm…", "¡Uy!", "Espera, espera…"],
+	"dorran": ["Hmm.", "Ya.", "Veamos."],
+	"sira": ["Mmm…", "Ya veo…", "Escucho."],
+}
 
 # ---------- fichas de vida (fase 1: mundo vivo) ----------
 # Rasgos de 0 a 1. gold e items = lo que el NPC posee de verdad (con eso paga).
