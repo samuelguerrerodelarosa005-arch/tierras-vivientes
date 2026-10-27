@@ -347,6 +347,9 @@ Limitaciones honestas: modelos 3D hechos con primitivas (no arte final), un juga
 |---|---|---|
 | 0 | Paso a PC VR (Link / SteamVR), calidad gráfica, mandos de PC, sin APIs de pago | Hecha |
 | 1 | Mundo vivo: economía con oro real, misiones que nacen de problemas, escrow, regateo, plazos, cadenas, hechos y rumores, reputación (miedo, respeto, cariño, confianza), ambiciones | Hecha (prueba `--month`) |
-| 2 | Conversación por voz sin menús: micrófono con detección de voz → whisper.cpp → llama.cpp (entiende) → el juego decide → llama.cpp (dice, sin cifras) → Piper (voz 3D por NPC). Instalador `instalar_ia.bat`; servidor propio opcional | Hecha en simulación (prueba `--voicetest`); falta probar en el PC con visor |
-| 2b | Voces clonadas con consentimiento; interrumpir al NPC mientras habla; respuestas en streaming | Pendiente |
-| 3 | Camino oscuro: verbos de ataque, ciudades seguras, muerte de NPC fuera de la ciudad, misiones de defensa por rumores | Diseñada, sin implementar |
+| 2 | Conversación por voz sin menús: micrófono con detección de voz → whisper.cpp → llama.cpp (entiende) → el juego decide → llama.cpp (dice, sin cifras) → Piper (voz 3D por NPC). Instalador `instalar_ia.bat`; servidor propio opcional. Falta: voces clonadas con consentimiento, interrumpir al NPC, respuestas en streaming | En prueba: hecha en simulación (`--voicetest`); lista cuando VR + IA vayan estables a 90 FPS en una RTX 5070 |
+| 3 | Cuerpo VR: fundas, armas, arco, escudo, poses de dedos, hechizos con voz + gesto | Siguiente |
+| 3b | Camino oscuro: verbos de ataque, ciudades seguras, muerte de NPC fuera de la ciudad, misiones de defensa por rumores, Rey Demonio | Diseñada; necesita el combate de la fase 3 |
+| 4 | Artesanía profunda: forja por pasos, cocina, objetos con historia, tierras y tiendas | Pendiente |
+| 5 | Multijugador: la simulación pasa a un servidor | Solo si la versión de un jugador funciona bien |
+| 6 | Gráficos: estilo final para PC, efectos, calidad por niveles | Al final |
